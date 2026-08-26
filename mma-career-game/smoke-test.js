@@ -29,14 +29,6 @@ app.on('browser-window-created', (_e, win) => {
     flushLog();
     return ok;
   };
-  const clickNth = async (sel, n) => {
-    const ok = await win.webContents.executeJavaScript(
-      `(() => { const els = document.querySelectorAll(${JSON.stringify(sel)}); const el = els[${n}]; if (el) { el.click(); return true; } return false; })()`
-    );
-    consoleLines.push(`clickNth(${sel},${n})=${ok}`);
-    flushLog();
-    return ok;
-  };
   const clickByText = async (text) => {
     const ok = await win.webContents.executeJavaScript(`
       (() => {
@@ -52,58 +44,44 @@ app.on('browser-window-created', (_e, win) => {
   };
 
   win.webContents.once('did-finish-load', async () => {
-    await wait(600);
-    await shot('title');
+    await wait(500);
+    await shot('01-menu-empty');
 
+    // Create first career.
     await clickByText('Nowa kariera');
-    await wait(250);
-    await shot('creation');
-
+    await wait(200);
     await click('#confirm');
     await wait(300);
-    await shot('shell-dashboard');
+    await shot('02-shell-career1');
 
-    await clickByText('Trening');
-    await wait(200);
-    await shot('shell-training');
-
-    // Force a fight offer via the ranked matchmaking system, bypassing the random weekly roll.
-    await win.webContents.executeJavaScript(`
-      (async () => {
-        const stateMod = await import('./js/state.js');
-        const mmMod = await import('./js/matchmaking.js');
-        stateMod.gameState.data.pendingOffer = mmMod.generateFightOffer(stateMod.gameState);
-      })();
-    `);
-    await wait(200);
-
-    await clickByText('Start');
-    await wait(200);
-    await shot('shell-offer');
-
-    await click('#accept');
+    // Switch back to menu without retiring.
+    await clickByText('Zmień karierę');
     await wait(250);
-    await shot('fight-intro');
+    await shot('03-menu-one-career');
 
-    await click('#start');
+    // Create a second career.
+    await clickByText('Nowa kariera');
+    await wait(200);
+    await click('#confirm');
     await wait(300);
-    await shot('fight-viewer-prefight-strategy');
+    await shot('04-shell-career2');
 
-    await click('#skip');
-    await wait(600);
-    await shot('fight-viewer-end');
-
-    await click('#continue');
+    await clickByText('Zmień karierę');
     await wait(250);
-    await shot('post-fight-interview');
+    await shot('05-menu-two-careers');
 
-    await clickNth('#options button', 0);
+    // Delete the second (currently listed first, most-recently-played) career.
+    await clickByText('Usuń');
+    await wait(150);
+    await shot('06-menu-confirm-delete');
+    await clickByText('Tak, usuń');
     await wait(250);
-    await shot('shell-after-fight');
+    await shot('07-menu-after-delete');
 
-    await clickByText('Ranking');
-    await wait(250);
-    await shot('shell-ranking');
+    // Continue the remaining career.
+    await clickByText('Kontynuuj');
+    await wait(300);
+    await shot('08-shell-resumed');
 
     flushLog();
     app.quit();

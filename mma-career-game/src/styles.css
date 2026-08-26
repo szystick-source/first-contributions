@@ -102,6 +102,16 @@ p { line-height: 1.5; }
   font-size: 1.05rem;
 }
 
+.career-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 480px;
+  text-align: left;
+}
+.career-card { margin-bottom: 0; }
+
 button {
   background: var(--panel-raised);
   color: var(--text);

@@ -21,6 +21,7 @@ const ui = {
   rankingOrgId: null,
   rankingWeightClassId: null,
   confirmingRetire: false,
+  confirmingDeleteId: null,
   fight: null, // { ctrl, canvas, eventCursor, offer }
 };
 
@@ -34,7 +35,7 @@ function render() {
   root.innerHTML = '';
   const screens = {
     loading: renderLoading,
-    title: renderTitle,
+    menu: renderMenu,
     creation: renderCreation,
     shell: renderShell,
     'fight-intro': renderFightIntro,
@@ -43,15 +44,17 @@ function render() {
     'personal-event': renderPersonalEvent,
     retired: renderRetired,
   };
-  const fn = screens[ui.screen] || renderTitle;
+  const fn = screens[ui.screen] || renderMenu;
   root.appendChild(fn());
 }
 
-// ---------- Loading / Title ----------
+// ---------- Loading / Career menu ----------
 
 async function init() {
   const loaded = await gameState.load();
-  ui.screen = loaded && gameState.data.player ? 'shell' : 'title';
+  const active = loaded && gameState.data && gameState.data.player;
+  ui.screen = active && !gameState.data.player.retired ? 'shell' : 'menu';
+  ui.tab = 'dashboard';
   render();
 }
 
@@ -59,16 +62,63 @@ function renderLoading() {
   return el(`<div class="screen title-screen"><h1>MMA Career</h1><p>Wczytywanie...</p></div>`);
 }
 
-function renderTitle() {
+function careerSummaryLine(data) {
+  const f = data.player;
+  const org = getOrganization(f.orgId);
+  const rankLabel = f.retired ? 'Zakończona' : f.rank == null ? 'Niesklasyfikowany' : f.rank === 0 ? 'Mistrz' : `#${f.rank + 1}`;
+  return `${org.name} &middot; ${rankLabel} &middot; ${f.record.wins}W-${f.record.losses}L-${f.record.draws}D`;
+}
+
+function renderMenu() {
+  const careers = gameState.listCareers().filter((c) => c.data.player);
   const wrap = el(`
     <div class="screen title-screen fade-in">
       <h1>MMA CAREER</h1>
-      <p>Poprowadź karierę zawodnika MMA od lokalnej gali po pas mistrzowski UFC.</p>
-      <div style="display:flex; gap:10px;">
-        <button class="primary" id="new-career">Nowa kariera</button>
-      </div>
+      <p>${careers.length ? 'Wybierz karierę, którą chcesz kontynuować, albo zacznij nową.' : 'Poprowadź karierę zawodnika MMA od lokalnej gali po pas mistrzowski UFC.'}</p>
+      <div class="career-list" id="career-list"></div>
+      <button class="primary" id="new-career">Nowa kariera</button>
     </div>
   `);
+
+  const list = wrap.querySelector('#career-list');
+  careers.forEach(({ id, data }) => {
+    const f = data.player;
+    const card = el(`
+      <div class="card career-card">
+        <h3 style="margin:0 0 4px;">${f.name}</h3>
+        <p style="margin:0 0 4px; color:var(--text-dim); font-size:0.88rem;">${careerSummaryLine(data)}</p>
+        <p style="margin:0 0 10px; color:var(--text-faint); font-size:0.8rem;">Tydzień ${data.week}, Rok ${data.year}</p>
+        <div style="display:flex; gap:8px;" id="actions"></div>
+      </div>
+    `);
+    const actions = card.querySelector('#actions');
+
+    if (ui.confirmingDeleteId === id) {
+      actions.appendChild(el(`<span style="align-self:center; color:var(--text-dim); font-size:0.85rem;">Usunąć na stałe?</span>`));
+      const yesBtn = el(`<button>Tak, usuń</button>`);
+      const noBtn = el(`<button>Anuluj</button>`);
+      yesBtn.addEventListener('click', () => { gameState.deleteCareer(id); gameState.save(); ui.confirmingDeleteId = null; render(); });
+      noBtn.addEventListener('click', () => { ui.confirmingDeleteId = null; render(); });
+      actions.appendChild(yesBtn);
+      actions.appendChild(noBtn);
+    } else {
+      const goBtn = el(`<button class="primary">Kontynuuj</button>`);
+      const delBtn = el(`<button>Usuń</button>`);
+      goBtn.addEventListener('click', () => {
+        gameState.selectCareer(id);
+        gameState.save();
+        ui.tab = 'dashboard';
+        ui.screen = f.retired ? 'retired' : 'shell';
+        render();
+      });
+      delBtn.addEventListener('click', () => { ui.confirmingDeleteId = id; render(); });
+      actions.appendChild(goBtn);
+      actions.appendChild(delBtn);
+    }
+
+    list.appendChild(card);
+  });
+
   wrap.querySelector('#new-career').addEventListener('click', () => {
     ui.screen = 'creation';
     render();
@@ -118,9 +168,9 @@ function renderCreation() {
   panel.querySelector('#f-name').addEventListener('input', (e) => { c.name = e.target.value; });
   panel.querySelector('#f-nat').addEventListener('change', (e) => { c.nationality = e.target.value; });
   panel.querySelector('#f-wc').addEventListener('change', (e) => { c.weightClassId = e.target.value; });
-  actions.querySelector('#back').addEventListener('click', () => { ui.screen = 'title'; render(); });
+  actions.querySelector('#back').addEventListener('click', () => { ui.screen = 'menu'; render(); });
   actions.querySelector('#confirm').addEventListener('click', () => {
-    gameState.reset();
+    gameState.createCareer();
     gameState.data.player = createPlayerFighter(c);
     gameState.logEvent(`${gameState.data.player.name} rozpoczyna karierę w MMA!`);
     gameState.save();
@@ -266,6 +316,10 @@ function renderDashboardTab(fighter) {
     const retireBtn = el(`<button>Zakończ karierę</button>`);
     retireBtn.addEventListener('click', () => { ui.confirmingRetire = true; render(); });
     nav.appendChild(retireBtn);
+
+    const switchBtn = el(`<button>Zmień karierę</button>`);
+    switchBtn.addEventListener('click', () => { gameState.save(); ui.screen = 'menu'; render(); });
+    nav.appendChild(switchBtn);
   }
   wrap.appendChild(nav);
 
@@ -701,15 +755,14 @@ function renderRetired() {
       <h1>Koniec kariery</h1>
       <p>${fighter.name} kończy karierę z rekordem ${fighter.record.wins}W-${fighter.record.losses}L-${fighter.record.draws}D.</p>
       <p>Zarobione pieniądze: $${fighter.money.toLocaleString('pl-PL')} | Sława: ${fighter.fame} | Obserwujący: ${fighter.socialFollowers.toLocaleString('pl-PL')}</p>
-      <button class="primary" id="new">Nowa kariera</button>
+      <div style="display:flex; gap:10px;">
+        <button class="primary" id="new">Nowa kariera</button>
+        <button id="menu">Menu karier</button>
+      </div>
     </div>
   `);
-  wrap.querySelector('#new').addEventListener('click', async () => {
-    await gameState.deleteSave();
-    gameState.reset();
-    ui.screen = 'title';
-    render();
-  });
+  wrap.querySelector('#new').addEventListener('click', () => { ui.screen = 'creation'; render(); });
+  wrap.querySelector('#menu').addEventListener('click', () => { ui.screen = 'menu'; render(); });
   return wrap;
 }
 
