@@ -1,0 +1,28 @@
+{
+  "name": "mma-career-game",
+  "version": "0.1.0",
+  "description": "Gra o prowadzeniu kariery zawodnika MMA",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder",
+    "smoke": "xvfb-run -a electron --no-sandbox smoke-test.js"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.example.mmacareer",
+    "productName": "MMA Career",
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*"
+    ],
+    "directories": {
+      "output": "dist"
+    }
+  }
+}
