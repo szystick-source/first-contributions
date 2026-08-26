@@ -16,97 +16,94 @@ app.on('browser-window-created', (_e, win) => {
     flushLog();
   });
 
-  win.webContents.once('did-finish-load', async () => {
-    await new Promise((r) => setTimeout(r, 600));
+  const shot = async (name) => {
     const img = await win.webContents.capturePage();
-    fs.writeFileSync(path.join(outDir, 'smoke-title.png'), img.toPNG());
-
-    const hasBtn = await win.webContents.executeJavaScript(`!!document.getElementById('new-career')`);
-    consoleLines.push(`hasBtn=${hasBtn}`);
+    fs.writeFileSync(path.join(outDir, `smoke-${name}.png`), img.toPNG());
+  };
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const click = async (sel) => {
+    const ok = await win.webContents.executeJavaScript(
+      `(() => { const els = document.querySelectorAll(${JSON.stringify(sel)}); const el = els[els.length - 1]; if (el) { el.click(); return true; } return false; })()`
+    );
+    consoleLines.push(`click(${sel})=${ok}`);
     flushLog();
+    return ok;
+  };
+  const clickNth = async (sel, n) => {
+    const ok = await win.webContents.executeJavaScript(
+      `(() => { const els = document.querySelectorAll(${JSON.stringify(sel)}); const el = els[${n}]; if (el) { el.click(); return true; } return false; })()`
+    );
+    consoleLines.push(`clickNth(${sel},${n})=${ok}`);
+    flushLog();
+    return ok;
+  };
+  const clickByText = async (text) => {
+    const ok = await win.webContents.executeJavaScript(`
+      (() => {
+        const btns = Array.from(document.querySelectorAll('button'));
+        const btn = btns.find(b => b.textContent.includes(${JSON.stringify(text)}));
+        if (btn) { btn.click(); return true; }
+        return false;
+      })()
+    `);
+    consoleLines.push(`clickByText(${text})=${ok}`);
+    flushLog();
+    return ok;
+  };
 
-    if (hasBtn) {
-      await win.webContents.executeJavaScript(`document.getElementById('new-career').click();`);
-      await new Promise((r) => setTimeout(r, 300));
-      const img2 = await win.webContents.capturePage();
-      fs.writeFileSync(path.join(outDir, 'smoke-creation.png'), img2.toPNG());
+  win.webContents.once('did-finish-load', async () => {
+    await wait(600);
+    await shot('title');
 
-      const hasConfirm = await win.webContents.executeJavaScript(`!!document.getElementById('confirm')`);
-      consoleLines.push(`hasConfirm=${hasConfirm}`);
-      flushLog();
-      if (hasConfirm) {
-        await win.webContents.executeJavaScript(`document.getElementById('confirm').click();`);
-        await new Promise((r) => setTimeout(r, 400));
-        const img3 = await win.webContents.capturePage();
-        fs.writeFileSync(path.join(outDir, 'smoke-hub.png'), img3.toPNG());
+    await clickByText('Nowa kariera');
+    await wait(250);
+    await shot('creation');
 
-        const hasTrain = await win.webContents.executeJavaScript(
-          `Array.from(document.querySelectorAll('button')).some(b => b.textContent.includes('Trenuj'))`
-        );
-        consoleLines.push(`hasTrainButton=${hasTrain}`);
-        flushLog();
+    await click('#confirm');
+    await wait(300);
+    await shot('shell-dashboard');
 
-        if (hasTrain) {
-          await win.webContents.executeJavaScript(
-            `Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Trenuj')).click();`
-          );
-          await new Promise((r) => setTimeout(r, 300));
-          const imgTrain = await win.webContents.capturePage();
-          fs.writeFileSync(path.join(outDir, 'smoke-training.png'), imgTrain.toPNG());
+    await clickByText('Trening');
+    await wait(200);
+    await shot('shell-training');
 
-          // Force a fight offer to appear so we can play through the fight screen,
-          // regardless of the random weekly roll, then click through to a fight.
-          await win.webContents.executeJavaScript(`
-            (async () => {
-              const stateMod = await import('./js/state.js');
-              const mmMod = await import('./js/matchmaking.js');
-              stateMod.gameState.data.pendingOffer = mmMod.generateFightOffer(stateMod.gameState.data.player);
-            })();
-          `);
-          await new Promise((r) => setTimeout(r, 200));
+    // Force a fight offer via the ranked matchmaking system, bypassing the random weekly roll.
+    await win.webContents.executeJavaScript(`
+      (async () => {
+        const stateMod = await import('./js/state.js');
+        const mmMod = await import('./js/matchmaking.js');
+        stateMod.gameState.data.pendingOffer = mmMod.generateFightOffer(stateMod.gameState);
+      })();
+    `);
+    await wait(200);
 
-          const goBack = await win.webContents.executeJavaScript(
-            `(() => { const b = document.getElementById('back'); if (b) { b.click(); return true; } return false; })()`
-          );
-          consoleLines.push(`clickedBackToHub=${goBack}`);
-          await new Promise((r) => setTimeout(r, 300));
-          const imgHub2 = await win.webContents.capturePage();
-          fs.writeFileSync(path.join(outDir, 'smoke-hub-offer.png'), imgHub2.toPNG());
+    await clickByText('Start');
+    await wait(200);
+    await shot('shell-offer');
 
-          const clickedAccept = await win.webContents.executeJavaScript(
-            `(() => { const b = document.getElementById('accept'); if (b) { b.click(); return true; } return false; })()`
-          );
-          consoleLines.push(`clickedAccept=${clickedAccept}`);
-          await new Promise((r) => setTimeout(r, 300));
-          const imgFightIntro = await win.webContents.capturePage();
-          fs.writeFileSync(path.join(outDir, 'smoke-fight-intro.png'), imgFightIntro.toPNG());
+    await click('#accept');
+    await wait(250);
+    await shot('fight-intro');
 
-          const clickedStart = await win.webContents.executeJavaScript(
-            `(() => { const b = document.getElementById('start'); if (b) { b.click(); return true; } return false; })()`
-          );
-          consoleLines.push(`clickedStart=${clickedStart}`);
-          await new Promise((r) => setTimeout(r, 800));
-          const imgFightMid = await win.webContents.capturePage();
-          fs.writeFileSync(path.join(outDir, 'smoke-fight-mid.png'), imgFightMid.toPNG());
+    await click('#start');
+    await wait(300);
+    await shot('fight-viewer-prefight-strategy');
 
-          const clickedSkip = await win.webContents.executeJavaScript(
-            `(() => { const b = document.getElementById('skip'); if (b) { b.click(); return true; } return false; })()`
-          );
-          consoleLines.push(`clickedSkip=${clickedSkip}`);
-          await new Promise((r) => setTimeout(r, 400));
-          const imgFightEnd = await win.webContents.capturePage();
-          fs.writeFileSync(path.join(outDir, 'smoke-fight-end.png'), imgFightEnd.toPNG());
+    await click('#skip');
+    await wait(600);
+    await shot('fight-viewer-end');
 
-          const clickedContinue = await win.webContents.executeJavaScript(
-            `(() => { const b = document.getElementById('continue'); if (b) { b.click(); return true; } return false; })()`
-          );
-          consoleLines.push(`clickedContinue=${clickedContinue}`);
-          await new Promise((r) => setTimeout(r, 300));
-          const imgInterview = await win.webContents.capturePage();
-          fs.writeFileSync(path.join(outDir, 'smoke-interview.png'), imgInterview.toPNG());
-        }
-      }
-    }
+    await click('#continue');
+    await wait(250);
+    await shot('post-fight-interview');
+
+    await clickNth('#options button', 0);
+    await wait(250);
+    await shot('shell-after-fight');
+
+    await clickByText('Ranking');
+    await wait(250);
+    await shot('shell-ranking');
 
     flushLog();
     app.quit();

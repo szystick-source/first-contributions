@@ -1,4 +1,4 @@
-import { ARCHETYPES, SKILL_KEYS, FIRST_NAMES, LAST_NAMES, NATIONALITIES } from './data.js';
+import { ARCHETYPES, SKILL_KEYS, FIRST_NAMES, LAST_NAMES, NATIONALITIES, ORGANIZATIONS } from './data.js';
 
 export function randomName() {
   const f = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)];
@@ -31,8 +31,10 @@ export function createPlayerFighter({ name, nationality, weightClassId, archetyp
     money: 1000,
     record: { wins: 0, losses: 0, draws: 0, koWins: 0, subWins: 0 },
     injuries: [], // { name, weeksLeft, severity }
-    orgId: null,
-    contract: null, // { orgId, fightsLeft, perFight }
+    orgId: ORGANIZATIONS[0].id,
+    rank: null, // null = unranked contender, 0 = champion, 1..size-1 = ranked
+    pendingPromotion: null, // set to next org id right after winning a belt
+    strategy: 'balanced',
     rivals: [], // npc ids
     sponsors: [], // { name, weeklyIncome, weeksLeft }
     socialFollowers: 100,

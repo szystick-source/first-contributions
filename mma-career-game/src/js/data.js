@@ -11,13 +11,26 @@ export const WEIGHT_CLASSES = [
   { id: 'heavy', name: 'Waga ciężka', limitKg: 120 },
 ];
 
-// Organization tiers: player climbs from regional shows up to the premier org.
+// Organization ladder: player climbs from a regional promotion all the way to
+// the UFC, fighting into each org's rankings from the bottom every time they
+// get signed by the next tier up. Real promotion names -- small non-commercial
+// fan project, no assets/branding used, just the names for flavor.
 export const ORGANIZATIONS = [
-  { id: 'reg', name: 'Regional Fight Night', tier: 1, minFame: 0, basePurse: 400 },
-  { id: 'nat', name: 'National Cage Series', tier: 2, minFame: 20, basePurse: 2000 },
-  { id: 'elite', name: 'Elite Combat League', tier: 3, minFame: 45, basePurse: 8000 },
-  { id: 'gfc', name: 'Global Fighting Championship', tier: 4, minFame: 70, basePurse: 35000 },
+  { id: 'cw', name: 'Cage Warriors', tier: 1, basePurse: 500, rosterSize: 10 },
+  { id: 'lfa', name: 'LFA', tier: 2, basePurse: 2200, rosterSize: 10 },
+  { id: 'bellator', name: 'Bellator', tier: 3, basePurse: 9000, rosterSize: 10 },
+  { id: 'one', name: 'ONE Championship', tier: 4, basePurse: 22000, rosterSize: 10 },
+  { id: 'ufc', name: 'UFC', tier: 5, basePurse: 60000, rosterSize: 12 },
 ];
+
+export function nextOrganization(orgId) {
+  const i = ORGANIZATIONS.findIndex((o) => o.id === orgId);
+  return i >= 0 && i < ORGANIZATIONS.length - 1 ? ORGANIZATIONS[i + 1] : null;
+}
+
+export function getOrganization(orgId) {
+  return ORGANIZATIONS.find((o) => o.id === orgId) || ORGANIZATIONS[0];
+}
 
 export const ARCHETYPES = {
   striker: {

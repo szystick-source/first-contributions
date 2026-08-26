@@ -26,7 +26,7 @@ export function advanceWeek(state) {
   if (!state.data.pendingOffer && !isInjured(fighter) && !fighter.retired) {
     // Give the player a little downtime between fights before the next offer appears.
     if (Math.random() < 0.35) {
-      state.data.pendingOffer = generateFightOffer(fighter);
+      state.data.pendingOffer = generateFightOffer(state);
       state.logEvent(`Nowa oferta walki od ${state.data.pendingOffer.orgName} przeciwko ${state.data.pendingOffer.opponent.name}.`);
     }
   }

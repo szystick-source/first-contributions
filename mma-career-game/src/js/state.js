@@ -9,6 +9,7 @@ const initialState = () => ({
   lastFightSummary: null,
   events: [], // rolling log of recent narrative events, newest first
   pendingMediaEvent: null,
+  world: { rankings: {} }, // per-org, per-weight-class ranked NPC rosters, generated lazily
 });
 
 export class GameState {
@@ -37,10 +38,32 @@ export class GameState {
       const res = await window.api.loadGame();
       if (res.ok && res.data) {
         this.data = res.data;
+        this._migrate();
         return true;
       }
     }
     return false;
+  }
+
+  // Backfills fields introduced after a save was written, so an older save
+  // (missing rankings/org data) doesn't crash on load.
+  _migrate() {
+    this.data.world = this.data.world || { rankings: {} };
+    this.data.world.rankings = this.data.world.rankings || {};
+    const p = this.data.player;
+    if (p) {
+      if (p.rank === undefined) p.rank = null;
+      if (p.pendingPromotion === undefined) p.pendingPromotion = null;
+      if (!p.strategy) p.strategy = 'balanced';
+      const knownOrgIds = ['cw', 'lfa', 'bellator', 'one', 'ufc'];
+      if (!knownOrgIds.includes(p.orgId)) {
+        p.orgId = 'cw';
+        p.rank = null;
+      }
+    }
+    if (this.data.pendingOffer && this.data.pendingOffer.opponentIndex === undefined) {
+      this.data.pendingOffer = null;
+    }
   }
 
   async deleteSave() {
