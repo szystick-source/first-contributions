@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Licznik dzienny</title>
+<style>
+  :root {
+    --bg: #f5f6fa;
+    --card: #ffffff;
+    --text: #1c1f26;
+    --muted: #6b7280;
+    --accent: #4f46e5;
+    --accent-light: #eef2ff;
+    --border: #e5e7eb;
+    --up: #16a34a;
+    --down: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px;
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .subtitle { color: var(--muted); margin-bottom: 24px; font-size: 14px; }
+  .container { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .card h2 { font-size: 15px; margin: 0 0 14px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  form.entry-form { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 13px; color: var(--muted); }
+  input {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 14px;
+    min-width: 140px;
+  }
+  input:focus { outline: 2px solid var(--accent-light); border-color: var(--accent); }
+  button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-size: 14px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  button:hover { background: #4338ca; }
+  button.secondary {
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+  }
+  button.secondary:hover { background: var(--accent-light); }
+  button.danger { background: transparent; color: var(--down); padding: 4px 8px; font-size: 12px; }
+  button.danger:hover { background: #fee2e2; }
+
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+  .stat { background: var(--accent-light); border-radius: 10px; padding: 14px; }
+  .stat .label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .stat .value { font-size: 20px; font-weight: 700; }
+  .stat .value.up { color: var(--up); }
+  .stat .value.down { color: var(--down); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; }
+  td.delta.up { color: var(--up); font-weight: 600; }
+  td.delta.down { color: var(--down); font-weight: 600; }
+  .empty { color: var(--muted); text-align: center; padding: 20px; font-size: 14px; }
+
+  .chart-wrap { overflow-x: auto; }
+  svg text { font-size: 10px; fill: var(--muted); }
+
+  .toolbar { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; }
+  .table-scroll { max-height: 320px; overflow-y: auto; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div>
+    <h1>Licznik dzienny</h1>
+    <p class="subtitle">Zapisuj końcowy stan licznika każdego dnia i śledź statystyki.</p>
+  </div>
+
+  <div class="card">
+    <h2>Dodaj / zaktualizuj wpis</h2>
+    <form class="entry-form" id="entry-form">
+      <div class="field">
+        <label for="date">Data</label>
+        <input type="date" id="date" required>
+      </div>
+      <div class="field">
+        <label for="value">Stan licznika</label>
+        <input type="number" id="value" step="1" required placeholder="np. 120">
+      </div>
+      <button type="submit">Zapisz</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Statystyki</h2>
+    <div class="stats-grid" id="stats"></div>
+  </div>
+
+  <div class="card">
+    <h2>Wykres</h2>
+    <div class="chart-wrap"><svg id="chart" height="200"></svg></div>
+  </div>
+
+  <div class="card">
+    <h2>Historia</h2>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Data</th><th>Stan</th><th>Zmiana</th><th></th></tr>
+        </thead>
+        <tbody id="history-body"></tbody>
+      </table>
+    </div>
+    <div id="empty-msg" class="empty" style="display:none;">Brak zapisanych wpisów. Dodaj pierwszy powyżej.</div>
+    <div class="toolbar">
+      <button type="button" class="secondary" id="export-btn">Eksportuj JSON</button>
+      <button type="button" class="secondary" id="import-btn">Importuj JSON</button>
+      <input type="file" id="import-file" accept="application/json" style="display:none;">
+    </div>
+  </div>
+</div>
+
+<script>
+  const STORAGE_KEY = 'counterTrackerEntries';
+
+  function loadEntries() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveEntries(entries) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+  }
+
+  function upsertEntry(entries, date, value) {
+    const idx = entries.findIndex(e => e.date === date);
+    if (idx >= 0) {
+      entries[idx].value = value;
+    } else {
+      entries.push({ date, value });
+    }
+    entries.sort((a, b) => a.date.localeCompare(b.date));
+    return entries;
+  }
+
+  function formatDate(iso) {
+    const d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  }
+
+  function render() {
+    const entries = loadEntries();
+    renderStats(entries);
+    renderTable(entries);
+    renderChart(entries);
+  }
+
+  function renderStats(entries) {
+    const statsEl = document.getElementById('stats');
+    statsEl.innerHTML = '';
+
+    if (entries.length === 0) {
+      statsEl.innerHTML = '<div class="empty">Brak danych do policzenia statystyk.</div>';
+      return;
+    }
+
+    const values = entries.map(e => e.value);
+    const first = entries[0];
+    const last = entries[entries.length - 1];
+    const total = last.value - first.value;
+
+    const deltas = [];
+    for (let i = 1; i < entries.length; i++) {
+      deltas.push(entries[i].value - entries[i - 1].value);
+    }
+    const avgDelta = deltas.length ? deltas.reduce((a, b) => a + b, 0) / deltas.length : 0;
+    const maxDelta = deltas.length ? Math.max(...deltas) : 0;
+    const minDelta = deltas.length ? Math.min(...deltas) : 0;
+    const max = Math.max(...values);
+    const min = Math.min(...values);
+
+    let currentStreak = 0, bestStreak = 0;
+    for (const d of deltas) {
+      if (d > 0) { currentStreak++; bestStreak = Math.max(bestStreak, currentStreak); }
+      else currentStreak = 0;
+    }
+
+    const stats = [
+      { label: 'Aktualny stan', value: last.value },
+      { label: 'Liczba dni zapisanych', value: entries.length },
+      { label: 'Zmiana łączna', value: (total >= 0 ? '+' : '') + total, cls: total > 0 ? 'up' : total < 0 ? 'down' : '' },
+      { label: 'Średnia zmiana / dzień', value: (avgDelta >= 0 ? '+' : '') + avgDelta.toFixed(2), cls: avgDelta > 0 ? 'up' : avgDelta < 0 ? 'down' : '' },
+      { label: 'Najlepszy dzień', value: (maxDelta >= 0 ? '+' : '') + maxDelta, cls: maxDelta > 0 ? 'up' : '' },
+      { label: 'Najgorszy dzień', value: (minDelta >= 0 ? '+' : '') + minDelta, cls: minDelta < 0 ? 'down' : '' },
+      { label: 'Najwyższy stan', value: max },
+      { label: 'Najniższy stan', value: min },
+      { label: 'Najdłuższa passa wzrostu', value: bestStreak + ' dni' },
+    ];
+
+    statsEl.innerHTML = stats.map(s => `
+      <div class="stat">
+        <div class="label">${s.label}</div>
+        <div class="value ${s.cls || ''}">${s.value}</div>
+      </div>
+    `).join('');
+  }
+
+  function renderTable(entries) {
+    const body = document.getElementById('history-body');
+    const emptyMsg = document.getElementById('empty-msg');
+    body.innerHTML = '';
+
+    if (entries.length === 0) {
+      emptyMsg.style.display = 'block';
+      return;
+    }
+    emptyMsg.style.display = 'none';
+
+    const sorted = [...entries].sort((a, b) => b.date.localeCompare(a.date));
+    sorted.forEach(entry => {
+      const idxInSorted = entries.findIndex(e => e.date === entry.date);
+      const prev = entries[idxInSorted - 1];
+      const delta = prev ? entry.value - prev.value : null;
+      const deltaCls = delta === null ? '' : delta > 0 ? 'up' : delta < 0 ? 'down' : '';
+      const deltaText = delta === null ? '—' : (delta >= 0 ? '+' : '') + delta;
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${formatDate(entry.date)}</td>
+        <td>${entry.value}</td>
+        <td class="delta ${deltaCls}">${deltaText}</td>
+        <td><button type="button" class="danger" data-date="${entry.date}">Usuń</button></td>
+      `;
+      body.appendChild(tr);
+    });
+
+    body.querySelectorAll('button[data-date]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const date = btn.getAttribute('data-date');
+        let entries = loadEntries().filter(e => e.date !== date);
+        saveEntries(entries);
+        render();
+      });
+    });
+  }
+
+  function renderChart(entries) {
+    const svg = document.getElementById('chart');
+    svg.innerHTML = '';
+    if (entries.length < 2) {
+      svg.setAttribute('width', '100%');
+      return;
+    }
+
+    const padding = 30;
+    const width = Math.max(500, entries.length * 60);
+    const height = 200;
+    svg.setAttribute('width', width);
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+
+    const values = entries.map(e => e.value);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const range = max - min || 1;
+
+    const stepX = (width - padding * 2) / (entries.length - 1);
+    const points = entries.map((e, i) => {
+      const x = padding + i * stepX;
+      const y = height - padding - ((e.value - min) / range) * (height - padding * 2);
+      return { x, y, entry: e };
+    });
+
+    const pathData = points.map((p, i) => (i === 0 ? 'M' : 'L') + p.x + ',' + p.y).join(' ');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', pathData);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', '#4f46e5');
+    path.setAttribute('stroke-width', '2');
+    svg.appendChild(path);
+
+    points.forEach(p => {
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('cx', p.x);
+      circle.setAttribute('cy', p.y);
+      circle.setAttribute('r', '3');
+      circle.setAttribute('fill', '#4f46e5');
+      svg.appendChild(circle);
+
+      const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      label.setAttribute('x', p.x);
+      label.setAttribute('y', height - 8);
+      label.setAttribute('text-anchor', 'middle');
+      label.textContent = formatDate(p.entry.date).slice(0, 5);
+      svg.appendChild(label);
+
+      const valueLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      valueLabel.setAttribute('x', p.x);
+      valueLabel.setAttribute('y', p.y - 8);
+      valueLabel.setAttribute('text-anchor', 'middle');
+      valueLabel.setAttribute('fill', '#1c1f26');
+      valueLabel.textContent = p.entry.value;
+      svg.appendChild(valueLabel);
+    });
+  }
+
+  document.getElementById('entry-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const date = document.getElementById('date').value;
+    const value = Number(document.getElementById('value').value);
+    if (!date || Number.isNaN(value)) return;
+
+    let entries = loadEntries();
+    entries = upsertEntry(entries, date, value);
+    saveEntries(entries);
+    document.getElementById('value').value = '';
+    render();
+  });
+
+  document.getElementById('export-btn').addEventListener('click', () => {
+    const entries = loadEntries();
+    const blob = new Blob([JSON.stringify(entries, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'licznik-historia.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById('import-btn').addEventListener('click', () => {
+    document.getElementById('import-file').click();
+  });
+
+  document.getElementById('import-file').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const imported = JSON.parse(reader.result);
+        if (!Array.isArray(imported)) throw new Error('invalid format');
+        let entries = loadEntries();
+        imported.forEach(item => {
+          if (item && typeof item.date === 'string' && typeof item.value === 'number') {
+            entries = upsertEntry(entries, item.date, item.value);
+          }
+        });
+        saveEntries(entries);
+        render();
+      } catch (err) {
+        alert('Nie udało się wczytać pliku — sprawdź format JSON.');
+      }
+      e.target.value = '';
+    };
+    reader.readAsText(file);
+  });
+
+  document.getElementById('date').valueAsDate = new Date();
+  render();
+</script>
+</body>
+</html>
