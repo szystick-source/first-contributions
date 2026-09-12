@@ -787,3 +787,10 @@ select.input { cursor: pointer; }
   *, body::before, body::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
   .breath-circle { transition-duration: 1s !important; }
 }
+
+/* Wyjście do spisu apek — odsunięte od nawigacji samego Kompasu. */
+.nav a.to-menu { color: var(--muted); }
+.nav a.to-menu + a { margin-top: 7px; }
+@media (max-width: 900px) {
+  .nav a.to-menu + a { margin-top: 0; margin-left: 4px; }
+}

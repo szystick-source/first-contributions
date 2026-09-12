@@ -5,6 +5,13 @@
   const icon = K.ui.icon;
   const DEFAULT_ROUTE = 'pulpit';
 
+  // Kompas bywa jedną z kilku apek pod wspólnym adresem. Gdy siedzi w
+  // podkatalogu /kompas/, katalog wyżej jest ich spisem — w trybie
+  // pełnoekranowym nie ma przycisku wstecz, więc droga powrotna musi być
+  // w samej apce. Otwarty z pliku albo z korzenia: nie ma dokąd wracać.
+  const MENU_HREF = (location.protocol.indexOf('http') === 0 &&
+    /\/kompas\/(index\.html)?$/.test(location.pathname)) ? '../' : null;
+
   let current = null;
   let mainEl = null;
   let navEl = null;
@@ -23,10 +30,17 @@
   }
 
   function buildSidebar() {
-    navEl = h('nav', { class: 'nav' }, K.data.nav.map(function (item) {
+    const links = K.data.nav.map(function (item) {
       return h('a', { href: '#/' + item.id, dataset: { route: item.id } },
         icon(item.icon), h('span', { text: item.label }));
-    }));
+    });
+
+    if (MENU_HREF) {
+      links.unshift(h('a', { href: MENU_HREF, class: 'to-menu' },
+        icon('back'), h('span', { text: 'Apki' })));
+    }
+
+    navEl = h('nav', { class: 'nav' }, links);
 
     return h('aside', { class: 'sidebar' },
       h('div', { class: 'brand' },
