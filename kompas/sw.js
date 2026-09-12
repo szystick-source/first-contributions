@@ -1,7 +1,7 @@
 /* Dzięki temu Kompas otwiera się bez internetu — na przystanku i w samolocie też.
    Po zmianie plików podnieś CACHE, żeby stara wersja nie została w pamięci. */
 
-const CACHE = 'kompas-2';
+const CACHE = 'kompas-3';
 
 const ASSETS = [
   './',

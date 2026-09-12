@@ -2,6 +2,7 @@
   'use strict';
 
   const ICONS = {
+    more: '<circle cx="5.5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18.5" cy="12" r="1.4"/>',
     compass: '<circle cx="12" cy="12" r="9"/><path d="m15.6 8.4-2.1 5.1-5.1 2.1 2.1-5.1z"/>',
     scale: '<path d="M12 4v16M8.5 20h7M4 7.5l8-1.5 8 1.5"/><path d="M4 7.5 1.5 13.5a2.5 2.5 0 0 0 5 0zM20 7.5l-2.5 6a2.5 2.5 0 0 0 5 0z"/>',
     thought: '<path d="M8.5 17.5A4.5 4.5 0 0 1 8 8.6a5 5 0 0 1 9.3-1.3 3.6 3.6 0 0 1-.3 10.2z"/><circle cx="6" cy="20" r="1.2"/>',
@@ -132,6 +133,97 @@
     );
   }
 
+  /* Arkusz wysuwany od dołu: zamyka go dotknięcie tła, Escape albo
+     przeciągnięcie w dół — tak jak w systemowych panelach telefonu. */
+  function sheet(opts) {
+    const o = opts || {};
+    let armed = false, active = false, startY = 0, shift = 0, vel = 0, stamp = 0;
+
+    const panel = h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true' },
+      h('div', { class: 'grabber' }),
+      o.title ? h('h3', { text: o.title }) : null,
+      o.sub ? h('p', { class: 'muted', text: o.sub }) : null,
+      o.content || null,
+      o.actions ? h('div', { class: 'sheet-actions' }, o.actions) : null
+    );
+    const scrim = h('div', { class: 'scrim', onClick: function () { close(false); } });
+
+    function close(result) {
+      if (panel.dataset.closing) return;
+      panel.dataset.closing = '1';
+      panel.classList.remove('on');
+      scrim.classList.remove('on');
+      document.body.classList.remove('sheet-open', 'sheet-drag');
+      document.body.style.removeProperty('--sheet-k');
+      document.body.style.overflow = '';
+      document.removeEventListener('keydown', onKey);
+      setTimeout(function () { panel.remove(); scrim.remove(); }, 480);
+      if (o.onClose) o.onClose(result);
+    }
+    function onKey(e) { if (e.key === 'Escape') close(false); }
+
+    function armDrag(y, target) {
+      if (target && target.closest && target.closest('input, textarea, select')) return;
+      armed = true; active = false; startY = y; shift = 0; vel = 0; stamp = performance.now();
+    }
+    function moveDrag(y, ev) {
+      if (!armed) return;
+      const delta = y - startY;
+      if (!active) {
+        if (delta > 6 && panel.scrollTop <= 0) {
+          active = true;
+          panel.style.transition = 'none';
+          document.body.classList.add('sheet-drag');
+        } else if (delta < -4 || panel.scrollTop > 0) { armed = false; return; }
+        else return;
+      }
+      if (ev && ev.cancelable) ev.preventDefault();
+      const now = performance.now();
+      vel = (delta - shift) / Math.max(1, now - stamp) * 1000;
+      stamp = now;
+      shift = delta > 0 ? delta : delta / 5;
+      const k = Math.max(0, Math.min(1, 1 - shift / Math.max(260, panel.offsetHeight)));
+      panel.style.transform = 'translate(-50%,' + shift.toFixed(1) + 'px)';
+      scrim.style.opacity = k.toFixed(3);
+      document.body.style.setProperty('--sheet-k', k.toFixed(3));
+    }
+    function endDrag() {
+      if (!active) { armed = false; return; }
+      const dist = shift, speed = vel;
+      armed = false; active = false;
+      document.body.classList.remove('sheet-drag');
+      panel.style.transition = '';
+      const shouldClose = dist > Math.min(190, (panel.offsetHeight || 400) * 0.26) || speed > 550;
+      requestAnimationFrame(function () {
+        panel.style.transform = '';
+        scrim.style.opacity = '';
+        document.body.style.removeProperty('--sheet-k');
+        if (shouldClose) close(false);
+      });
+    }
+
+    panel.addEventListener('touchstart', function (e) { armDrag(e.touches[0].clientY, e.target); }, { passive: true });
+    panel.addEventListener('touchmove', function (e) { moveDrag(e.touches[0].clientY, e); }, { passive: false });
+    panel.addEventListener('touchend', endDrag, { passive: true });
+    panel.addEventListener('touchcancel', endDrag, { passive: true });
+    panel.addEventListener('mousedown', function (e) { if (e.button === 0) armDrag(e.clientY, e.target); });
+    window.addEventListener('mousemove', function (e) { if (armed) moveDrag(e.clientY, null); }, { passive: true });
+    window.addEventListener('mouseup', endDrag);
+
+    document.body.appendChild(scrim);
+    document.body.appendChild(panel);
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', onKey);
+    requestAnimationFrame(function () {
+      scrim.classList.add('on');
+      panel.classList.add('on');
+      document.body.classList.add('sheet-open');
+      if (K.light) K.light.collect();
+    });
+
+    return { close: close, panel: panel };
+  }
+
   function toast(message) {
     const node = h('div', { class: 'toast', role: 'status', text: message });
     document.body.appendChild(node);
@@ -144,28 +236,24 @@
 
   function confirm(opts) {
     return new Promise(function (resolve) {
-      function close(result) {
-        overlay.remove();
-        document.removeEventListener('keydown', onKey);
+      let settled = false;
+      function finish(result) {
+        if (settled) return;
+        settled = true;
         resolve(result);
       }
-      function onKey(e) { if (e.key === 'Escape') close(false); }
-
-      const dialog = h('div', { class: 'dialog', role: 'dialog', 'aria-modal': 'true' },
-        h('h3', { text: opts.title }),
-        opts.body ? h('p', { class: 'muted', text: opts.body }) : null,
-        h('div', { class: 'dialog-actions' },
-          button(opts.cancelLabel || 'Anuluj', { onClick: function () { close(false); } }),
+      const panel = sheet({
+        title: opts.title,
+        sub: opts.body,
+        actions: [
+          button(opts.cancelLabel || 'Anuluj', { onClick: function () { finish(false); panel.close(); } }),
           button(opts.confirmLabel || 'Potwierdź', {
             variant: opts.danger ? 'danger' : 'primary',
-            onClick: function () { close(true); }
+            onClick: function () { finish(true); panel.close(); }
           })
-        )
-      );
-      const overlay = h('div', { class: 'overlay', onClick: function (e) { if (e.target === overlay) close(false); } }, dialog);
-      document.body.appendChild(overlay);
-      document.addEventListener('keydown', onKey);
-      dialog.querySelector('.btn-primary, .btn-danger, .btn').focus();
+        ],
+        onClose: function () { finish(false); }
+      });
     });
   }
 
@@ -201,6 +289,7 @@
     textarea: textarea,
     input: input,
     empty: empty,
+    sheet: sheet,
     toast: toast,
     confirm: confirm,
     relativeDate: relativeDate,
