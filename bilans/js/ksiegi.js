@@ -18,10 +18,12 @@ function newTask(name) {
 }
 const curTask = () => S.tasks.find(t => t.id === S.currentTask) || null;
 
+/* Najpierw konto dopisane w samym zadaniu (tak zapisywały się starsze dane),
+   potem plan kont użytkownika, na końcu układ wzorcowy. */
 function accInfo(k, task) {
   const own = task && task.extra && task.extra[k];
-  const std = PLAN_BY_K[k];
-  if (own) return { k, n: own.n || (std ? std.n : 'Konto ' + k), t: own.t || (std ? std.t : 'AP'), b: own.b || (std && std.b), bp: own.bp || (std && std.bp), s: std && std.s, r: own.r || (std && std.r) };
+  const std = planInfo(k);
+  if (own) return Object.assign({ k, n: 'Konto ' + k, t: 'AP' }, std || {}, own);
   if (std) return std;
   return { k, n: 'Konto ' + k, t: 'AP' };
 }

@@ -48,6 +48,7 @@ function refreshTool() {
   saveVals(t, v);
   $('#view').innerHTML = viewTool(t);
   collectGlass();
+  animateCounts();
 }
 
 /* ---------- rysowanie ---------- */
@@ -71,6 +72,7 @@ function render() {
   v.style.setProperty('--dir', dir);
   v.classList.remove('in'); void v.offsetWidth; v.classList.add('in');
   collectGlass();
+  animateCounts();
 }
 
 /* ---------- akcje wspólne ---------- */
@@ -198,7 +200,7 @@ function sheetSettings() {
     <button class="btn wide ghost" data-act="params" style="justify-content:space-between">
       <span>Parametry roku ${S.year}</span><span class="muted tiny">${paramCount() ? paramCount() + ' zmienionych' : 'domyślne'}</span></button>
     <button class="btn wide ghost" data-act="plan-kont" style="justify-content:space-between;margin-top:8px">
-      <span>Plan kont</span><span class="muted tiny">${PLAN.length} kont</span></button>
+      <span>Plan kont</span><span class="muted tiny">${planList().length} kont${planCount() ? ' · ' + planCount() + ' zmian' : ''}</span></button>
     <button class="btn wide ghost" data-act="schematy" style="justify-content:space-between;margin-top:8px">
       <span>Schematy księgowań</span><span class="muted tiny">${SCHEMATY.reduce((s, g) => s + g.ops.length, 0)} operacji</span></button>
 
@@ -250,7 +252,9 @@ ACT['wipe'] = () => {
 /* ============================================================
    ZDARZENIA
    ============================================================ */
+let suppressClick = false;
 document.addEventListener('click', e => {
+  if (suppressClick) return;
   const act = e.target.closest('[data-act]');
   if (act) {
     e.preventDefault();
@@ -294,64 +298,89 @@ document.addEventListener('change', e => {
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && sheetOpen) closeSheet(); });
 
-/* ---------- pasek zakładek ---------- */
-const tabBtns = () => $$('#tabs button');
-let hoverIdx = 0;
+/* ---------- pasek zakładek: szklany bąbelek, który da się przeciągać ----------
+   Dotknięcie gdziekolwiek na pasku przyciąga bąbelek pod palec; przeciągnięcie
+   przesuwa go płynnie i rozciąga przy szybkim ruchu, a puszczenie przełącza
+   sekcję. Zwykłe dotknięcie wciąż działa jak klik. */
+const tabsEl = $('#tabs'), pill = $('#tabpill');
+const tabBtns = () => $$('#tabs button[data-tab]');
+const idxOfTab = n => tabBtns().findIndex(b => b.dataset.tab === n);
+let dragging = false, dragMoved = false, hoverIdx = 0, downX = 0, lastX = 0, lastT = 0, vel = 0;
 
-function placePill(idx) {
-  const btns = tabBtns(), pill = $('#tabpill');
-  if (!btns[idx]) return;
-  const b = btns[idx], box = $('#tabs').getBoundingClientRect(), r = b.getBoundingClientRect();
-  pill.style.width = r.width + 'px';
-  pill.style.transform = `translateX(${r.left - box.left}px)`;
+function placePill({ idx = hoverIdx, x = null, stretch = 1 } = {}) {
+  const btns = tabBtns(), b = btns[clamp(idx, 0, btns.length - 1)];
+  if (!b || !b.offsetWidth) return;
+  pill.style.width = b.offsetWidth + 'px';
+  pill.style.transform = `translate3d(${Math.round((x === null ? b.offsetLeft : x) * 10) / 10}px,0,0) scaleX(${stretch})`;
 }
-function syncPill() {
-  hoverIdx = Math.max(0, TABORDER.indexOf(tab));
-  placePill(hoverIdx);
-  tabBtns().forEach((b, i) => b.classList.toggle('hot', i === hoverIdx));
+function highlight(i) { tabBtns().forEach((b, j) => b.classList.toggle('hot', j === i)); }
+function syncPill() { hoverIdx = Math.max(0, idxOfTab(tab)); placePill({ idx: hoverIdx }); highlight(hoverIdx); }
+
+/* najbliższy środek — odporne na szczeliny między przyciskami i na krawędzie */
+function idxAt(clientX) {
+  const btns = tabBtns();
+  let best = 0, bestD = Infinity;
+  btns.forEach((b, i) => {
+    const r = b.getBoundingClientRect(), d = Math.abs(clientX - (r.left + r.width / 2));
+    if (d < bestD) { bestD = d; best = i; }
+  });
+  return best;
+}
+function xAt(clientX) {
+  const btns = tabBtns(), navX = tabsEl.getBoundingClientRect().left;
+  const first = btns[0].offsetLeft, last = btns[btns.length - 1].offsetLeft;
+  let x = clientX - navX - btns[0].offsetWidth / 2;
+  if (x < first) x = first - (first - x) / 2.8;     // opór na krawędziach
+  if (x > last) x = last + (x - last) / 2.8;
+  return x;
 }
 
-(function tabDrag() {
-  const bar = $('#tabs');
-  let dragging = false;
-  const idxAt = x => {
-    const btns = tabBtns();
-    for (let i = 0; i < btns.length; i++) {
-      const r = btns[i].getBoundingClientRect();
-      if (x >= r.left && x <= r.right) return i;
-    }
-    return x < btns[0].getBoundingClientRect().left ? 0 : btns.length - 1;
-  };
-  bar.addEventListener('pointerdown', e => {
-    const b = e.target.closest('button');
-    if (!b) return;
-    dragging = true;
-    bar.setPointerCapture(e.pointerId);
-    $('#tabpill').classList.add('free');
-    hoverIdx = idxAt(e.clientX);
-    placePill(hoverIdx);
-    tabBtns().forEach((x, i) => x.classList.toggle('hot', i === hoverIdx));
-  });
-  bar.addEventListener('pointermove', e => {
-    if (!dragging) return;
-    const i = idxAt(e.clientX);
-    if (i !== hoverIdx) {
-      hoverIdx = i;
-      placePill(i);
-      tabBtns().forEach((x, j) => x.classList.toggle('hot', j === i));
-    }
-  });
-  const koniec = () => {
-    if (!dragging) return;
-    dragging = false;
-    $('#tabpill').classList.remove('free');
-    const nowy = TABORDER[hoverIdx];
-    if (nowy && nowy !== tab) { tab = nowy; tool = null; render(); }
-    else syncPill();
-  };
-  bar.addEventListener('pointerup', koniec);
-  bar.addEventListener('pointercancel', koniec);
-})();
+tabsEl.addEventListener('pointerdown', e => {
+  if (e.button && e.button !== 0) return;
+  const btns = tabBtns();
+  if (!btns.length || !btns[0].offsetWidth) return;
+  dragging = true; dragMoved = false;
+  downX = lastX = e.clientX; lastT = performance.now(); vel = 0;
+  try { tabsEl.setPointerCapture(e.pointerId); } catch (err) {}
+  pill.classList.remove('free');
+  hoverIdx = idxAt(e.clientX);
+  placePill({ idx: hoverIdx });
+  highlight(hoverIdx);
+});
+tabsEl.addEventListener('pointermove', e => {
+  if (!dragging) return;
+  const now = performance.now(), dt = Math.max(1, now - lastT);
+  vel = (e.clientX - lastX) / dt * 1000; lastX = e.clientX; lastT = now;
+  if (!dragMoved && Math.abs(e.clientX - downX) < 5) return;
+  dragMoved = true;
+  pill.classList.add('free');
+  placePill({ idx: hoverIdx, x: xAt(e.clientX), stretch: clamp(1 + Math.abs(vel) / 4500, 1, 1.14) });
+  const i = idxAt(e.clientX);
+  if (i !== hoverIdx) {
+    hoverIdx = i;
+    highlight(i);
+    try { navigator.vibrate && navigator.vibrate(5); } catch (err) {}
+  }
+});
+function endDrag() {
+  if (!dragging) return;
+  dragging = false;
+  pill.classList.remove('free');
+  placePill({ idx: hoverIdx });
+  const name = (tabBtns()[hoverIdx] || {}).dataset?.tab;
+  if (dragMoved) { suppressClick = true; setTimeout(() => suppressClick = false, 120); }
+  if (name && name !== tab) { tab = name; tool = null; render(); }
+  else highlight(idxOfTab(tab));
+}
+tabsEl.addEventListener('pointerup', endDrag);
+tabsEl.addEventListener('pointercancel', () => { dragging = false; pill.classList.remove('free'); syncPill(); });
+tabsEl.addEventListener('keydown', e => {
+  const dir = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+  if (!dir) return;
+  e.preventDefault();
+  const btns = tabBtns(), i = clamp(idxOfTab(tab) + dir, 0, btns.length - 1);
+  tab = btns[i].dataset.tab; tool = null; render(); btns[i].focus();
+});
 
 /* ---------- arkusz: przeciągnięcie w dół zamyka ---------- */
 (function sheetDrag() {
@@ -390,13 +419,26 @@ function syncPill() {
 /* ---------- światło ---------- */
 addEventListener('scroll', () => { paintGlass(); }, { passive: true });
 addEventListener('resize', () => { collectGlass(); syncPill(); }, { passive: true });
-addEventListener('pointermove', e => aimLight(e.clientX / innerWidth, e.clientY / innerHeight), { passive: true });
+addEventListener('pointermove', e => {
+  if (e.pointerType === 'mouse') aimLight(e.clientX / innerWidth, e.clientY / innerHeight * .8);
+}, { passive: true });
+addEventListener('touchmove', e => {
+  const t = e.touches[0];
+  if (t) aimLight(t.clientX / innerWidth, t.clientY / innerHeight * .7);
+}, { passive: true });
 if (window.DeviceOrientationEvent && !REDUCED) {
   addEventListener('deviceorientation', e => {
     if (e.gamma === null) return;
     aimLight(.5 + clamp(e.gamma / 60, -1, 1) * .55, .2 + clamp((e.beta - 45) / 60, -1, 1) * .4);
   }, { passive: true });
 }
+/* powolny dryf, żeby tafla nigdy nie stała w miejscu */
+let driftT = 0;
+setInterval(() => {
+  if (document.hidden || REDUCED || dragging) return;
+  driftT += 1;
+  aimLight(.5 + Math.sin(driftT / 9) * .28, .12 + Math.cos(driftT / 13) * .1);
+}, 2400);
 
 /* ---------- start ---------- */
 function boot() {
@@ -404,10 +446,13 @@ function boot() {
   if (!S.params) S.params = {};
   if (!S.calc) S.calc = {};
   if (!S.tasks) S.tasks = [];
+  planUser();
   if (YEARS.indexOf(S.year) < 0) S.year = YEARS[0];
   if (MENU_URL) $('#btn-menu').href = MENU_URL;
   render();
-  setTimeout(collectGlass, 80);
+  requestAnimationFrame(() => { syncPill(); collectGlass(); });
+  setTimeout(collectGlass, 400);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { syncPill(); collectGlass(); });
   if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }

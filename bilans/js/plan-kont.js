@@ -247,3 +247,89 @@ const SCHEMATY = [
 ];
 
 const DOWODY = ['KP','KW','WB','FV','PZ','WZ','RW','PW','OT','LT','LP','PK','Rk','MM'];
+
+/* ============================================================
+   Plan kont bywa inny w każdej szkole, w każdym podręczniku i w każdym
+   zadaniu. Wzorcowy układ powyżej jest tylko punktem wyjścia — poniżej
+   warstwa, w której użytkownik poprawia nazwy i typy, dopisuje własne
+   konta i chowa te, których nie używa.
+   S.plan = { over: { '100': {...} }, add: [ {...} ], hide: ['093'] }
+   ============================================================ */
+
+function planUser() {
+  if (!S.plan || typeof S.plan !== 'object') S.plan = {};
+  if (!S.plan.over || typeof S.plan.over !== 'object') S.plan.over = {};
+  if (!Array.isArray(S.plan.add)) S.plan.add = [];
+  if (!Array.isArray(S.plan.hide)) S.plan.hide = [];
+  return S.plan;
+}
+
+/* Konto po nałożeniu poprawek użytkownika. */
+function planInfo(k) {
+  const u = planUser();
+  const wlasne = u.add.find(a => a.k === k);
+  const wzor = PLAN_BY_K[k];
+  const baza = wlasne || wzor;
+  if (!baza && !u.over[k]) return null;
+  return Object.assign({ k, n: 'Konto ' + k, t: 'AP' }, baza || {}, u.over[k] || {});
+}
+
+/* Cały plan w wersji obowiązującej — bez kont schowanych. */
+function planList(zSchowanymi) {
+  const u = planUser();
+  const lista = PLAN.map(a => planInfo(a.k))
+    .concat(u.add.map(a => planInfo(a.k)))
+    .filter(Boolean);
+  const widoczne = zSchowanymi ? lista : lista.filter(a => u.hide.indexOf(a.k) < 0);
+  return widoczne.sort((x, y) => x.k.localeCompare(y.k, 'pl', { numeric: true }));
+}
+const planIsOwn = k => planUser().add.some(a => a.k === k);
+const planIsEdited = k => !!planUser().over[k];
+const planIsHidden = k => planUser().hide.indexOf(k) >= 0;
+const planCount = () => {
+  const u = planUser();
+  return Object.keys(u.over).length + u.add.length + u.hide.length;
+};
+
+function planSave(k, dane) {
+  const u = planUser();
+  const czyste = {};
+  ['n', 't', 'b', 'bp', 'r'].forEach(pole => {
+    if (dane[pole] !== undefined) czyste[pole] = dane[pole];
+  });
+  if (planIsOwn(k)) {
+    const a = u.add.find(x => x.k === k);
+    Object.assign(a, czyste);
+    ['b', 'bp', 'r'].forEach(pole => { if (dane[pole] === '') delete a[pole]; });
+  } else {
+    u.over[k] = czyste;
+  }
+  save();
+}
+function planAdd(k, dane) {
+  const u = planUser();
+  if (PLAN_BY_K[k] || planIsOwn(k)) return false;
+  u.add.push(Object.assign({ k }, dane));
+  save();
+  return true;
+}
+function planDel(k) {
+  const u = planUser();
+  u.add = u.add.filter(a => a.k !== k);
+  delete u.over[k];
+  u.hide = u.hide.filter(x => x !== k);
+  save();
+}
+function planHide(k, schowaj) {
+  const u = planUser();
+  u.hide = u.hide.filter(x => x !== k);
+  if (schowaj) u.hide.push(k);
+  save();
+}
+function planResetOne(k) { delete planUser().over[k]; save(); }
+function planResetAll() { S.plan = { over: {}, add: [], hide: [] }; save(); }
+
+/* Pozycje sprawozdań do wyboru przy edycji konta. */
+const POZYCJE_BILANSU = () => BILANS_A.filter(p => !p.sum).map(p => ({ v: p.k, l: 'Aktywa · ' + p.n }))
+  .concat(BILANS_P.filter(p => !p.sum).map(p => ({ v: p.k, l: 'Pasywa · ' + p.n })));
+const POZYCJE_RZIS = () => RZIS.filter(p => !p.sum && !p.calc).map(p => ({ v: p.k, l: p.k + '. ' + p.n }));

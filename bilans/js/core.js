@@ -131,6 +131,7 @@ function freshData() {
     version: 1,
     year: String(TODAY.getFullYear()),
     params: {},          // nadpisania parametrów: { '2026': { minWage: 4806, ... } }
+    plan: { over: {}, add: [], hide: [] },   // poprawki użytkownika w planie kont
     calc: {},            // zapamiętane pola formularzy per narzędzie
     tasks: [],           // zadania księgowe
     currentTask: null,
@@ -315,3 +316,31 @@ function aimLight(x, y) {
 /* ---------- akcje ---------- */
 /* Każdy moduł dopisuje tu swoje reakcje na dotknięcie [data-act]. */
 const ACT = {};
+
+/* ---------- liczby przeliczają się płynnie, zamiast przeskakiwać ---------- */
+const countMem = {};
+function animateCounts() {
+  if (REDUCED) return;
+  $$('#view .bigout').forEach(box => {
+    const kEl = $('.k', box), vEl = $('.v', box);
+    if (!kEl || !vEl) return;
+    const key = kEl.textContent.trim();
+    /* Wynik bywa też słowem („Skala podatkowa") — wtedy nie ma czego liczyć. */
+    const m = vEl.textContent.match(/^(−|-)?([\d  ]+(?:,\d+)?)(.*)$/);
+    if (!m) { delete countMem[key]; return; }
+    const znak = m[1] ? -1 : 1;
+    const to = znak * parseFloat(m[2].replace(/[\s ]/g, '').replace(',', '.'));
+    const dec = (m[2].split(',')[1] || '').length;
+    const suf = m[3];
+    const from = countMem[key] !== undefined ? countMem[key] : 0;
+    countMem[key] = to;
+    if (!isFinite(to) || Math.abs(to - from) < .5) return;
+    const t0 = performance.now();
+    (function krok(now) {
+      const k = clamp((now - t0) / 560, 0, 1), e = 1 - Math.pow(1 - k, 3);
+      vEl.textContent = pln(from + (to - from) * e, dec) + suf;
+      if (k < 1) requestAnimationFrame(krok);
+      else vEl.textContent = pln(to, dec) + suf;
+    })(t0);
+  });
+}

@@ -338,23 +338,31 @@ function sheetOp(id) {
    Listy z wyszukiwarką. Lista odświeża się osobno, żeby pisanie
    w polu nie gubiło kursora.
    ------------------------------------------------------------ */
-function filtrujPlan(q) {
+function filtrujPlan(q, zSchowanymi) {
   q = (q || '').toLowerCase().trim();
-  return PLAN.filter(a => !q || a.k.indexOf(q) === 0 || a.n.toLowerCase().indexOf(q) >= 0);
+  return planList(zSchowanymi).filter(a => !q || a.k.indexOf(q) === 0 || a.n.toLowerCase().indexOf(q) >= 0);
 }
-function listaKont(q, klik) {
-  const lista = filtrujPlan(q);
+function listaKont(q, tryb) {
+  /* tryb: 'wybor' — dotknięcie wybiera konto, 'edycja' — otwiera je do poprawki */
+  const edycja = tryb === 'edycja';
+  const lista = filtrujPlan(q, edycja);
   const grupy = ZESPOLY.map(z => ({ z, acc: lista.filter(a => a.k[0] === z.z) })).filter(g => g.acc.length);
   if (!grupy.length) return '<div class="empty">Nic takiego nie ma w planie kont</div>';
   return grupy.map(g => `<div class="zgrp">Zespół ${g.z.z} — ${esc(g.z.n)}</div>
-    ${g.acc.map(a => klik
-      ? `<button class="accrow" data-act="pick-acc" data-k="${a.k}">
-           <span class="nr">${a.k}</span><span class="nm">${esc(a.n)}</span><span class="tp">${TYPE_SHORT[a.t]}</span></button>`
-      : `<div class="accrow" style="cursor:default;align-items:flex-start">
-           <span class="nr">${a.k}</span>
-           <span class="nm" style="white-space:normal">${esc(a.n)}
-             <span class="muted tiny" style="display:block;margin-top:2px">${TYPE_NAME[a.t]} · rośnie po stronie ${TYPE_GROW[a.t]}</span></span>
-         </div>`).join('')}`).join('');
+    ${g.acc.map(a => {
+      const wlasne = planIsOwn(a.k), zmienione = planIsEdited(a.k), schowane = planIsHidden(a.k);
+      const znak = wlasne ? '<span class="tp" style="color:var(--accent)">własne</span>'
+        : zmienione ? '<span class="tp" style="color:var(--accent)">zmienione</span>' : '';
+      return edycja
+        ? `<button class="accrow${wlasne || zmienione ? ' own' : ''}" data-act="edit-acc" data-k="${a.k}"
+             style="align-items:flex-start${schowane ? ';opacity:.45' : ''}">
+             <span class="nr">${a.k}</span>
+             <span class="nm" style="white-space:normal">${esc(a.n)}
+               <span class="muted tiny" style="display:block;margin-top:2px">${TYPE_NAME[a.t]} · rośnie po stronie ${TYPE_GROW[a.t]}${schowane ? ' · schowane' : ''}</span></span>
+             ${znak}</button>`
+        : `<button class="accrow${wlasne ? ' own' : ''}" data-act="pick-acc" data-k="${a.k}">
+             <span class="nr">${a.k}</span><span class="nm">${esc(a.n)}</span><span class="tp">${TYPE_SHORT[a.t]}</span></button>`;
+    }).join('')}`).join('');
 }
 function listaSchematow(q) {
   q = (q || '').toLowerCase().trim();
@@ -372,23 +380,8 @@ function sheetPick(target) {
   pickTarget = target;
   openSheet(`<h3>Wybierz konto</h3><div class="sub">Wpisz numer albo nazwę. Konto spoza planu dodasz na dole.</div>
     <div class="search"><input data-lq="kont" placeholder="np. 131 albo kasa" autocomplete="off" inputmode="search"></div>
-    <div class="acclist">${listaKont('', true)}</div>
+    <div class="acclist">${listaKont('', 'wybor')}</div>
     <button class="btn wide ghost sm" data-act="own-acc" style="margin-top:12px">+ Konto spoza planu</button>`);
-}
-
-function sheetOwnAcc() {
-  openSheet(`<h3>Własne konto</h3><div class="sub">Gdy zadanie używa konta, którego nie ma we wzorcowym planie.</div>
-    ${field('ownK', 'Numer konta', { placeholder: 'np. 205' })}
-    ${field('ownN', 'Nazwa', { placeholder: 'np. Rozrachunki z odbiorcą Kowalski' })}
-    ${select('ownT', 'Typ konta', [
-      { v: 'A', l: 'aktywne — saldo Wn' }, { v: 'P', l: 'pasywne — saldo Ma' },
-      { v: 'AP', l: 'aktywno-pasywne' }, { v: 'K', l: 'kosztowe' },
-      { v: 'Pr', l: 'przychodowe' }, { v: 'PB', l: 'pozabilansowe' }], 'A')}
-    ${select('ownB', 'Pozycja w bilansie', [{ v: '', l: 'nie wykazuję w bilansie' }]
-      .concat(BILANS_A.filter(p => !p.sum).map(p => ({ v: p.k, l: 'Aktywa · ' + p.n })))
-      .concat(BILANS_P.filter(p => !p.sum).map(p => ({ v: p.k, l: 'Pasywa · ' + p.n }))), '')}
-    <div class="btnrow"><button class="btn ghost" data-act="close">Anuluj</button>
-      <button class="btn primary" data-act="save-own">Dodaj konto</button></div>`);
 }
 
 function sheetSchematy() {
@@ -399,10 +392,67 @@ function sheetSchematy() {
 }
 
 function sheetPlanKont() {
-  openSheet(`<h3>Plan kont</h3><div class="sub">Typ konta mówi, po której stronie rośnie i gdzie trafia w sprawozdaniu.</div>
+  const zmian = planCount();
+  openSheet(`<h3>Plan kont</h3>
+    <div class="sub">Dotknij konta, żeby poprawić nazwę, typ albo pozycję w sprawozdaniu.
+      Możesz też dopisać własne konto i schować te, których nie używasz.</div>
     <div class="search"><input data-lq="plan" placeholder="szukaj numeru albo nazwy" autocomplete="off" inputmode="search"></div>
-    <div class="acclist">${listaKont('', false)}</div>
-    <button class="btn wide ghost sm" data-act="close" style="margin-top:12px">Zamknij</button>`);
+    <div class="acclist">${listaKont('', 'edycja')}</div>
+    <button class="btn wide primary sm" data-act="new-acc" style="margin-top:12px">+ Nowe konto</button>
+    ${zmian ? `<button class="btn wide ghost sm" data-act="reset-plan" style="margin-top:8px">
+      Przywróć wzorcowy plan (zmian: ${zmian})</button>` : ''}
+    <button class="btn wide ghost sm" data-act="close" style="margin-top:8px">Zamknij</button>`);
+}
+
+/* Edycja pojedynczego konta. */
+function sheetAccEdit(k) {
+  const a = planInfo(k);
+  if (!a) return;
+  const wlasne = planIsOwn(k), zmienione = planIsEdited(k);
+  const bilansowe = isBilansowe(a.t);
+  const wynikowe = isWynikowe(a.t);
+  openSheet(`<h3>Konto ${esc(k)}</h3>
+    <div class="sub">${wlasne ? 'Konto dopisane przez Ciebie.' : zmienione ? 'Konto wzorcowe z Twoją poprawką.' : 'Konto z planu wzorcowego.'}</div>
+    <input type="hidden" data-f="accK" value="${esc(k)}">
+    ${field('accN', 'Nazwa konta', { value: a.n, type: 'text' })}
+    ${select('accT', 'Typ konta', [
+      { v: 'A', l: 'aktywne — saldo Wn' }, { v: 'P', l: 'pasywne — saldo Ma' },
+      { v: 'AP', l: 'aktywno-pasywne — saldo po obu stronach' },
+      { v: 'K', l: 'kosztowe — wynikowe' }, { v: 'Pr', l: 'przychodowe — wynikowe' },
+      { v: 'W', l: 'rozliczeniowe' }, { v: 'PB', l: 'pozabilansowe' }], a.t)}
+    ${bilansowe ? select('accB', a.t === 'AP' ? 'Pozycja bilansu przy saldzie Wn' : 'Pozycja w bilansie',
+      [{ v: '', l: 'nie wykazuję w bilansie' }].concat(POZYCJE_BILANSU()), a.b || '') : ''}
+    ${a.t === 'AP' ? select('accBp', 'Pozycja bilansu przy saldzie Ma',
+      [{ v: '', l: 'ta sama co wyżej' }].concat(POZYCJE_BILANSU()), a.bp || '') : ''}
+    ${wynikowe ? select('accR', 'Pozycja w rachunku zysków i strat',
+      [{ v: '', l: 'nie wykazuję' }].concat(POZYCJE_RZIS()), a.r || '') : ''}
+    ${toggle('accHide', 'Schowaj w wyszukiwarce', 'konto zniknie z listy wyboru, zapisy zostaną', planIsHidden(k))}
+    <div class="btnrow" style="margin-top:6px">
+      <button class="btn ghost" data-act="plan-kont">Wróć</button>
+      <button class="btn primary" data-act="save-acc">Zapisz</button>
+    </div>
+    ${wlasne
+      ? `<button class="btn wide ghost danger sm" data-act="del-acc" data-k="${esc(k)}" style="margin-top:8px">Usuń konto</button>`
+      : zmienione
+        ? `<button class="btn wide ghost sm" data-act="reset-acc" data-k="${esc(k)}" style="margin-top:8px">Przywróć wzorcowe ustawienia</button>`
+        : ''}`);
+}
+
+/* Dopisanie konta spoza planu. */
+function sheetAccNew(numer) {
+  openSheet(`<h3>Nowe konto</h3>
+    <div class="sub">Gdy zadanie używa konta, którego nie ma we wzorcowym planie —
+      na przykład rozrachunków z konkretnym kontrahentem.</div>
+    ${field('accK', 'Numer konta', { value: numer || '', placeholder: 'np. 205', type: 'text' })}
+    ${field('accN', 'Nazwa', { placeholder: 'np. Rozrachunki z odbiorcą Kowalski', type: 'text' })}
+    ${select('accT', 'Typ konta', [
+      { v: 'A', l: 'aktywne — saldo Wn' }, { v: 'P', l: 'pasywne — saldo Ma' },
+      { v: 'AP', l: 'aktywno-pasywne' }, { v: 'K', l: 'kosztowe' },
+      { v: 'Pr', l: 'przychodowe' }, { v: 'PB', l: 'pozabilansowe' }], 'A')}
+    ${select('accB', 'Pozycja w bilansie', [{ v: '', l: 'nie wykazuję w bilansie' }].concat(POZYCJE_BILANSU()), '')}
+    ${select('accR', 'Pozycja w rachunku zysków i strat', [{ v: '', l: 'nie wykazuję' }].concat(POZYCJE_RZIS()), '')}
+    <div class="btnrow"><button class="btn ghost" data-act="close">Anuluj</button>
+      <button class="btn primary" data-act="add-acc">Dodaj konto</button></div>`);
 }
 
 /* Wpisywanie w wyszukiwarkę odświeża samą listę. */
@@ -411,7 +461,7 @@ function odswiezListe(el) {
   const box = $('.acclist', $('#sheet'));
   if (!box) return;
   box.innerHTML = rodzaj === 'schemat' ? listaSchematow(el.value)
-    : listaKont(el.value, rodzaj === 'kont');
+    : listaKont(el.value, rodzaj === 'plan' ? 'edycja' : 'wybor');
 }
 
 /* ============================================================
@@ -539,29 +589,58 @@ ACT['pick-acc'] = b => {
   else opDraft[pickTarget] = k;
   reopenOp();
 };
-ACT['own-acc'] = () => sheetOwnAcc();
-ACT['save-own'] = () => {
+/* ---------- plan kont ---------- */
+ACT['own-acc'] = () => sheetAccNew();
+ACT['new-acc'] = () => { pickTarget = null; sheetAccNew(); };
+ACT['plan-kont'] = () => { pickTarget = null; sheetPlanKont(); };
+ACT['edit-acc'] = b => sheetAccEdit(b.dataset.k);
+
+const polaKonta = f => ({
+  n: (f.accN || '').trim() || undefined,
+  t: f.accT,
+  b: f.accB !== undefined ? f.accB : undefined,
+  bp: f.accBp !== undefined ? f.accBp : undefined,
+  r: f.accR !== undefined ? f.accR : undefined
+});
+
+ACT['save-acc'] = () => {
   const f = readForm($('#sheet'));
-  const k = (f.ownK || '').trim();
+  planSave(f.accK, polaKonta(f));
+  planHide(f.accK, !!f.accHide);
+  sheetPlanKont(); render();
+  toast('Zapisane');
+};
+ACT['del-acc'] = b => {
+  if (!confirm(`Usunąć konto ${b.dataset.k} z planu? Zapisy w zadaniach zostaną, ale konto zniknie z listy wyboru.`)) return;
+  planDel(b.dataset.k);
+  sheetPlanKont(); render();
+};
+ACT['reset-acc'] = b => { planResetOne(b.dataset.k); sheetAccEdit(b.dataset.k); render(); toast('Przywrócone'); };
+ACT['reset-plan'] = () => {
+  if (!confirm('Przywrócić wzorcowy plan kont? Poprawki, własne konta i ukrycia znikną.')) return;
+  planResetAll(); sheetPlanKont(); render();
+  toast('Plan kont jak na początku');
+};
+
+/* Dodanie konta wraca tam, skąd przyszło — do wyboru konta albo do planu. */
+ACT['add-acc'] = () => {
+  const f = readForm($('#sheet'));
+  const k = (f.accK || '').trim();
   if (!k) return toast('Podaj numer konta');
-  const t = curTask() || newTask();
-  t.extra[k] = { n: (f.ownN || '').trim() || 'Konto ' + k, t: f.ownT,
-                 b: f.ownB && f.ownB.slice(0, 2) !== 'PA' && f.ownB.slice(0, 2) !== 'PB' ? f.ownB : undefined,
-                 bp: f.ownB && (f.ownB.slice(0, 2) === 'PA' || f.ownB.slice(0, 2) === 'PB') ? f.ownB : undefined };
-  if (t.extra[k].bp && !t.extra[k].b) t.extra[k].b = t.extra[k].bp;
-  save();
-  if (pickTarget === 'bo') { boDraft.k = k; sheetBO(); }
-  else {
-    if (!opDraft) opDraft = { id: 'new', dowod: '', tresc: '', kwota: '', wn: '', ma: '', zlozony: false, lines: [] };
-    if (pickTarget && pickTarget.indexOf('line-') === 0) opDraft.lines[+pickTarget.slice(5)].k = k;
-    else if (pickTarget) opDraft[pickTarget] = k;
-    reopenOp();
-  }
+  const dane = polaKonta(f);
+  if (dane.b && (dane.b.slice(0, 2) === 'PA' || dane.b.slice(0, 2) === 'PB')) dane.bp = dane.b;
+  if (!planAdd(k, dane)) return toast('Konto ' + k + ' już jest w planie');
+  if (!pickTarget) { sheetPlanKont(); render(); toast('Konto ' + k + ' dodane'); return; }
+  if (pickTarget === 'bo') { boDraft.k = k; sheetBO(); return; }
+  if (!opDraft) opDraft = { id: 'new', dowod: '', tresc: '', kwota: '', wn: '', ma: '', zlozony: false, lines: [] };
+  if (pickTarget.indexOf('line-') === 0) opDraft.lines[+pickTarget.slice(5)].k = k;
+  else opDraft[pickTarget] = k;
+  reopenOp();
 };
 
 /* ---------- podpowiedzi ---------- */
 ACT['schematy'] = () => { syncSheet(); sheetSchematy(); };
-ACT['plan-kont'] = () => sheetPlanKont();
+ACT['plan-kont'] = () => { pickTarget = null; sheetPlanKont(); };
 ACT['use-schemat'] = b => {
   const l = JSON.parse(b.dataset.l);
   if (!curTask()) newTask();

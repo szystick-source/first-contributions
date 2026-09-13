@@ -23,6 +23,11 @@ sprawdzając, czy strona Wn równa się stronie Ma.
   własnego, żeby bilans się spinał.
 - **Plan kont** — wzorcowy układ zespołów 0–8 plus konta pozabilansowe,
   z wyszukiwarką po numerze i nazwie oraz typem konta i stroną, po której rośnie.
+  **Cały plan jest edytowalny**: poprawisz nazwę i typ konta, wskażesz jego
+  pozycję w bilansie i w rachunku zysków i strat, dopiszesz własne konto
+  (np. rozrachunki z konkretnym kontrahentem) i schowasz te, których nie
+  używasz. Każda zmiana wchodzi od razu do wszystkich zadań, a jeden przycisk
+  przywraca układ wzorcowy.
 - **Schematy księgowań** — kilkadziesiąt typowych operacji z gotową dekretacją.
 
 ### Płace
@@ -64,6 +69,15 @@ wyliczenia — między innymi prognozowane przeciętne wynagrodzenie, limit
 30-krotności i stopy NBP, od których zależą odsetki.
 
 Bilans jest pomocą w liczeniu, nie poradą podatkową.
+
+## Wygląd
+
+Bilans należy do tej samej rodziny co Pryzmat i Kompas — te same tafle szkła,
+ten sam pasek zakładek z przeciąganym bąbelkiem, te same arkusze wysuwane od
+dołu — ale ma własny świat. Pod szkłem leży rozliniowana karta księgi
+rachunkowej z dwiema kreskami rubryk, światło jest mosiężne jak lampa nad
+biurkiem, nagłówki są szeryfowe, a wszystkie kwoty pisane maszyną, żeby
+kolumny liczb stały równo. Wn łapie chłodny błękit, Ma glinę.
 
 ## Uruchomienie
 
