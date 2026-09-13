@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bilans</title>
+<meta name="description" content="Księgowość na telefonie: konta i bilans, płace, ZUS, podatki i kadry. Liczy się na urządzeniu, bez konta i bez sieci.">
+<meta name="theme-color" content="#07080D">
+<meta name="color-scheme" content="dark">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Bilans">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<style>html{color-scheme:dark;background:#07080D}body{margin:0}[hidden]{display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div id="aurora" aria-hidden="true"><i></i><i></i><i></i><b></b></div>
+<div id="grain" aria-hidden="true"></div>
+
+<div id="app">
+  <header id="top">
+    <div class="toprow">
+      <a class="iconbtn" id="btn-menu" href="../" title="Wszystkie apki" aria-label="Wróć do spisu apek" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H6M11 6.5 5.5 12 11 17.5"/></svg>
+      </a>
+      <button class="iconbtn" id="btn-back" data-act="back" title="Wróć" aria-label="Wróć do listy narzędzi" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H6M11 6.5 5.5 12 11 17.5"/></svg>
+      </button>
+      <div class="wordmark">
+        <svg class="mk" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 4v16M6 20h12" stroke="#6FD8B4" stroke-width="1.6" stroke-linecap="round"/>
+          <path d="M4 8h16" stroke="#6FD8B4" stroke-width="1.6" stroke-linecap="round"/>
+          <path d="M4 8 1.8 13.2h4.4L4 8Z" stroke="#79ADF5" stroke-width="1.4" stroke-linejoin="round"/>
+          <path d="M20 8l-2.2 5.2h4.4L20 8Z" stroke="#E8A25E" stroke-width="1.4" stroke-linejoin="round"/>
+        </svg>
+        <span class="t" id="title">Bilans</span>
+      </div>
+      <div class="spacer"></div>
+      <button class="yearchip num" id="yearchip" data-act="year" title="Zmień rok parametrów" aria-label="Zmień rok parametrów">2026</button>
+      <button class="iconbtn" data-act="settings" title="Ustawienia" aria-label="Ustawienia">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1 2 2 0 1 1-4 0 1.6 1.6 0 0 0-2.7-1.1l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 3 15a2 2 0 1 1 0-4 1.6 1.6 0 0 0 1.1-2.7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 9 4.6a2 2 0 1 1 4 0 1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.6 1.6 0 0 0 21 11a2 2 0 1 1 0 4Z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main id="view" tabindex="-1"></main>
+</div>
+
+<nav id="tabs" class="glass" role="tablist" aria-label="Sekcje aplikacji">
+  <span id="tabpill" aria-hidden="true"></span>
+  <button role="tab" data-tab="ksiegi" data-act="tab" aria-selected="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H19v16H5.5A1.5 1.5 0 0 1 4 18.5zM12 4v16M7.5 8.5h1M15.5 8.5h1"/></svg>
+    Księgi
+  </button>
+  <button role="tab" data-tab="place" data-act="tab" aria-selected="false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5h18v11H3zM3 11h18"/><circle cx="7.5" cy="15" r="1.2"/></svg>
+    Płace
+  </button>
+  <button role="tab" data-tab="kadry" data-act="tab" aria-selected="false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20v-1.5A4.5 4.5 0 0 1 7.5 14h3a4.5 4.5 0 0 1 4.5 4.5V20M16 5.4a3.2 3.2 0 0 1 0 5.2M18 14.2a4.5 4.5 0 0 1 3 4.3V20"/></svg>
+    Kadry
+  </button>
+  <button role="tab" data-tab="firma" data-act="tab" aria-selected="false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V6.5L12 3l8 3.5V20M4 20h16M9.5 20v-4.5h5V20M8 9h.01M12 9h.01M16 9h.01M8 12.5h.01M12 12.5h.01M16 12.5h.01"/></svg>
+    Firma
+  </button>
+  <button role="tab" data-tab="narzedzia" data-act="tab" aria-selected="false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6.5a3.8 3.8 0 0 0 5 5l-8 8a2.1 2.1 0 0 1-3-3l8-8a3.8 3.8 0 0 0-2-2Z"/><path d="M6.5 6.5 4 9"/></svg>
+    Narzędzia
+  </button>
+</nav>
+
+<div id="scrim"></div>
+<div id="sheet" role="dialog" aria-modal="true" aria-label="Panel"></div>
+<div id="tip" role="status"></div>
+
+<script src="js/core.js"></script>
+<script src="js/params.js"></script>
+<script src="js/plan-kont.js"></script>
+<script src="js/calc.js"></script>
+<script src="js/ksiegi.js"></script>
+<script src="js/ksiegi-ui.js"></script>
+<script src="js/tools.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
