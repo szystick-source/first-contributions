@@ -1,7 +1,7 @@
 /* Dzięki temu Saper otwiera się bez internetu — w metrze i w samolocie też.
    Po zmianie plików podnieś CACHE, żeby stara wersja nie została w pamięci. */
 
-const CACHE = 'saper-1';
+const CACHE = 'saper-2';
 
 const ASSETS = [
   './',

@@ -125,7 +125,7 @@
       li('Odkryj wszystkie pola bez min.', 'Liczba na polu mówi, ile min leży w ośmiu polach dookoła.'),
       li('Pierwsze dotknięcie jest bezpieczne', '— miny rozkładają się dopiero po nim i omijają też sąsiadów, więc zawsze otwiera się kawałek planszy.'),
       li('Przytrzymaj pole,', 'żeby postawić flagę tam, gdzie jest mina. Przełącznik „Flaguj” odwraca to: dotknięcie stawia flagę, a przytrzymanie odkrywa.'),
-      li('Dotknij odkrytej liczby,', 'gdy ma wokół komplet flag — otworzą się pozostali sąsiedzi. Zła flaga kończy grę.'),
+      li('Dotknij dwukrotnie odkrytej liczby,', 'gdy ma wokół komplet flag — otworzą się pozostali sąsiedzi. Zła flaga kończy grę.'),
       li('Na komputerze', 'prawy przycisk myszy stawia flagę; z klawiatury: strzałki, Enter i F.')
     );
   };

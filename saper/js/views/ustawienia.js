@@ -37,9 +37,9 @@
       ui.card(null,
         ui.sectionTitle('Sterowanie'),
         h('div', { class: 'stack sm' },
-          h('span', { class: 'field-label', text: 'Szybkie odkrywanie' }),
+          h('span', { class: 'field-label', text: 'Dwukrotne dotknięcie liczby' }),
           choice([[true, 'Włączone'], [false, 'Wyłączone']], st.chord, function (v) { set('chord', v); }),
-          h('p', { class: 'field-hint', text: 'Dotknięcie odkrytej liczby otwiera jej sąsiadów, gdy wokół stoi już tyle flag, ile pokazuje liczba.' })
+          h('p', { class: 'field-hint', text: 'Otwiera sąsiadów liczby, gdy wokół stoi już tyle flag, ile ona pokazuje.' })
         ),
         h('hr', { class: 'divider' }),
         h('div', { class: 'stack sm' },

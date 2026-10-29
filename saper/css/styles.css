@@ -855,6 +855,7 @@ body.sheet-drag .grabber { background: var(--muted); width: 44px; }
 }
 .cell:hover { filter: brightness(1.04); }
 .cell.press { transform: scale(.86); }
+.cell.peek { transform: scale(.88); filter: brightness(.94); }
 .cell .icon { width: 58%; height: 58%; }
 
 .cell.open {

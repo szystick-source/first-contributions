@@ -5,13 +5,14 @@
   const h = ui.h;
   const icon = ui.icon;
   const LONG_PRESS = 360;
+  const DOUBLE_TAP = 420;
 
   let g = null;            // bieżąca plansza, przeżywa przejścia między zakładkami
   let mode = 'open';       // co robi zwykłe dotknięcie: 'open' albo 'flag'
   let cells = [];
   let boardEl = null, minesEl = null, clockEl = null, restartEl = null, resultEl = null, hintEl = null, segEl = null;
   let since = 0, ticker = 0;
-  let press = null, lastTouch = 0, focusIdx = 0;
+  let press = null, lastTouch = 0, focusIdx = 0, lastTap = null;
 
   function game() {
     if (!g) {
@@ -118,7 +119,7 @@
     let res = null;
 
     if (g.view[i] === 1) {
-      if (K.store.state.settings.chord) res = K.game.chord(g, i);
+      if (kind === 'chord' && K.store.state.settings.chord) res = K.game.chord(g, i);
     } else if (kind === 'flag') {
       if (K.game.toggleFlag(g, i)) { paint(i); buzz(8); }
     } else if (g.view[i] === 0) {
@@ -214,8 +215,31 @@
 
   /* ---------- dotyk ----------
      Krótkie dotknięcie robi to, co wybrano w przełączniku, a przytrzymanie —
-     odwrotność. Na komputerze prawy przycisk stawia flagę. Przesunięcie palca
+     odwrotność. Odkryta liczba reaguje dopiero na dwukrotne dotknięcie, jak
+     w klasycznym saperze: pierwsze tylko pokazuje zakrytych sąsiadów, drugie
+     ich otwiera. Na komputerze prawy przycisk stawia flagę. Przesunięcie palca
      to przewijanie strony, więc anuluje ruch. */
+
+  // zakryci sąsiedzi liczby na chwilę się wciskają — widać, co otworzy drugie dotknięcie
+  function peek(i) {
+    K.game.neighbors(g, i).forEach(function (j) {
+      if (g.view[j] !== 0) return;
+      const el = cells[j];
+      el.classList.add('peek');
+      setTimeout(function () { el.classList.remove('peek'); }, DOUBLE_TAP);
+    });
+  }
+
+  function tapNumber(i) {
+    const now = Date.now();
+    if (lastTap && lastTap.i === i && now - lastTap.t < DOUBLE_TAP) {
+      lastTap = null;
+      act(i, 'chord');
+      return;
+    }
+    lastTap = { i: i, t: now };
+    if (K.store.state.settings.chord && g.status === 'play') peek(i);
+  }
 
   function cellAt(target) {
     const el = target && target.closest ? target.closest('.cell') : null;
@@ -241,7 +265,8 @@
         if (!press) return;
         press.long = true;
         cells[press.i].classList.remove('press');
-        if (g.view[press.i] !== 1) buzz(14);
+        if (g.view[press.i] === 1) return;
+        buzz(14);
         act(press.i, mode === 'flag' ? 'open' : 'flag');
       }, LONG_PRESS);
     });
@@ -252,7 +277,9 @@
       if (!press) return;
       const p = press;
       cancelPress();
-      if (!p.long) act(p.i, mode);
+      if (p.long) return;
+      if (g.view[p.i] === 1) tapNumber(p.i);
+      else { lastTap = null; act(p.i, mode); }
     });
     boardEl.addEventListener('pointercancel', cancelPress);
     boardEl.addEventListener('pointerleave', cancelPress);
@@ -264,11 +291,11 @@
       if (i >= 0) act(i, 'flag');
     });
 
-    // klawiatura: strzałki chodzą po polach, Enter odkrywa, F stawia flagę
+    // klawiatura: strzałki chodzą po polach, Enter odkrywa (na liczbie — sąsiadów), F stawia flagę
     boardEl.addEventListener('click', function (e) {
       if (e.detail !== 0) return;
       const i = cellAt(e.target);
-      if (i >= 0) act(i, 'open');
+      if (i >= 0) act(i, g.view[i] === 1 ? 'chord' : 'open');
     });
     boardEl.addEventListener('keydown', function (e) {
       const i = cellAt(e.target);
