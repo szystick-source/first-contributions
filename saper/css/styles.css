@@ -986,3 +986,12 @@ ol.times { list-style: none; margin: 0; padding: 0; }
 
 .rules { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: 8px; font-size: .88rem; line-height: 1.55; }
 .rules b { font-weight: 650; }
+
+/* ---------- start apki na iPhonie ---------- */
+
+/* Zsunięcie o --lag: patrz skrypt w <head> index.html. */
+:root { --lag: 0px; }
+#grain, .scrim { bottom: calc(-1 * var(--lag)); }
+.tabbar { bottom: calc(16px + env(safe-area-inset-bottom) - var(--lag)); }
+.sheet { bottom: calc(-1 * var(--lag)); }
+.toast { bottom: calc(96px + env(safe-area-inset-bottom) - var(--lag)); }

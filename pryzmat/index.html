@@ -466,7 +466,35 @@ table.data tr:last-child td{border-bottom:none}
   .catgrid{grid-template-columns:repeat(4,1fr)}
   .catpick{font-size:9px}
 }
+
+/* ---------- start apki na iPhonie ---------- */
+/* Zsunięcie o --lag: patrz skrypt tuż niżej. */
+:root{--lag:0px}
+#aurora,#grain,#scrim{bottom:calc(-1 * var(--lag))}
+#fab{bottom:calc(92px + env(safe-area-inset-bottom) - var(--lag))}
+#tabs{bottom:calc(16px + env(safe-area-inset-bottom) - var(--lag))}
+#sheet{bottom:calc(-1 * var(--lag))}
 </style>
+<script>
+/* iOS w apce z ekranu głównego potrafi przy starcie policzyć wysokość okna bez
+   górnego paska (godzina, Dynamic Island) i poprawia ją dopiero po pierwszym
+   przesunięciu palcem. Do tego czasu wszystko przypięte do dołu wisi za wysoko,
+   a pod spodem zostaje pusty pas. --lag to brakująca różnica: o tyle zsuwamy
+   pasek zakładek, tło i panele. Gdy iOS sam się poprawi, wraca do zera. */
+(function () {
+  var root = document.documentElement;
+  function fit() {
+    var standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
+    var lag = standalone && innerHeight > innerWidth ? screen.height - root.clientHeight : 0;
+    root.style.setProperty('--lag', (lag > 0 && lag < 100 ? lag : 0) + 'px');
+  }
+  fit();
+  ['resize', 'scroll', 'orientationchange', 'pageshow'].forEach(function (type) {
+    addEventListener(type, fit, { passive: true });
+  });
+  document.addEventListener('visibilitychange', fit);
+})();
+</script>
 
 <div id="aurora" aria-hidden="true"><i></i><i></i><i></i><b></b></div>
 <div id="grain" aria-hidden="true"></div>

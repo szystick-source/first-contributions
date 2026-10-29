@@ -1,7 +1,7 @@
 /* Dzięki temu Bilans otwiera się bez internetu — na lekcji też.
    Po zmianie plików podnieś CACHE, żeby stara wersja nie została w pamięci. */
 
-const CACHE = 'bilans-3';
+const CACHE = 'bilans-4';
 
 const ASSETS = [
   './',

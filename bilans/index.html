@@ -20,6 +20,26 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Inter+Tight:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="css/styles.css">
+<script>
+/* iOS w apce z ekranu głównego potrafi przy starcie policzyć wysokość okna bez
+   górnego paska (godzina, Dynamic Island) i poprawia ją dopiero po pierwszym
+   przesunięciu palcem. Do tego czasu wszystko przypięte do dołu wisi za wysoko,
+   a pod spodem zostaje pusty pas. --lag to brakująca różnica: o tyle zsuwamy
+   pasek zakładek, tło i panele. Gdy iOS sam się poprawi, wraca do zera. */
+(function () {
+  var root = document.documentElement;
+  function fit() {
+    var standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
+    var lag = standalone && innerHeight > innerWidth ? screen.height - root.clientHeight : 0;
+    root.style.setProperty('--lag', (lag > 0 && lag < 100 ? lag : 0) + 'px');
+  }
+  fit();
+  ['resize', 'scroll', 'orientationchange', 'pageshow'].forEach(function (type) {
+    addEventListener(type, fit, { passive: true });
+  });
+  document.addEventListener('visibilitychange', fit);
+})();
+</script>
 </head>
 <body>
 

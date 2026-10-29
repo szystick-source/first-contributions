@@ -472,3 +472,11 @@ details.more summary:hover{color:var(--text-2)}
   .tools{grid-template-columns:1fr}
   .bigout .v{font-size:25px}
 }
+
+/* ---------- start apki na iPhonie ---------- */
+/* Zsunięcie o --lag: patrz skrypt w <head> index.html. */
+:root{--lag:0px}
+#ksiega,#grain,#scrim{bottom:calc(-1 * var(--lag))}
+#tabs{bottom:calc(16px + env(safe-area-inset-bottom) - var(--lag))}
+#sheet{bottom:calc(-1 * var(--lag))}
+#tip{bottom:calc(94px + env(safe-area-inset-bottom) - var(--lag))}
