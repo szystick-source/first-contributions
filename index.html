@@ -26,7 +26,7 @@
     margin:0;background:var(--ink);color:var(--text);min-height:100vh;
     font:15px/1.5 system-ui,-apple-system,'Segoe UI',sans-serif;letter-spacing:-.005em;
     -webkit-font-smoothing:antialiased;
-    padding:0 18px;padding-block:64px 48px;
+    padding:0 18px;padding-block:max(64px,calc(env(safe-area-inset-top) + 32px)) calc(48px + env(safe-area-inset-bottom));
     display:flex;flex-direction:column;align-items:center;gap:28px;
   }
   body::before{

@@ -263,6 +263,11 @@ p { margin: 0; }
 
 /* ---------- szkielet aplikacji ---------- */
 
+/* Treść wjeżdża przy zmianie zakładki z boku. Bez przycięcia na chwilę
+   wystaje poza ekran, a iPhone rozszerza wtedy stronę i zostaje lekko
+   pomniejszona i ruchoma na boki. clip, nie hidden — hidden zepsułby
+   przyklejony pasek górny. */
+
 .shell {
   max-width: var(--shell-w);
   margin: 0 auto;
@@ -272,6 +277,7 @@ p { margin: 0; }
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
+  overflow-x: clip;
   transition: transform var(--t-slow) var(--e-out), filter var(--t-slow) var(--e-out);
 }
 body.sheet-open .shell {
