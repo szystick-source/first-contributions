@@ -274,11 +274,11 @@ function loadSave(){try{const s=JSON.parse(localStorage.getItem(SAVE_KEY)||'null
 function save(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(S))}catch(e){}}
 
 const P={x:0,y:0,a:0,vx:0,vy:0,w:0,thr:0,drift:0,dT:0,steer:0,nitro:1,safe:{x:0,y:0,a:0},safeT:0};
-function stats(){return{maxV:900+S.up.e*115,acc:640+S.up.e*100,grip:1750+S.up.t*550,ncap:1+S.up.n*.6,nreg:.06+S.up.n*.03}}
+function stats(){return{maxV:900+S.up.e*115,acc:640+S.up.e*100,grip:1+S.up.t*.18,ncap:1+S.up.n*.6,nreg:.06+S.up.n*.03}}
 const KMH=.165;
 
 /* ---------- ruch uliczny po grafie (pojawia się zawsze poza kadrem) ---------- */
-const AI=[],AIN=30;
+const AI=[],AIN=16;
 const AICOL=['#e7e3d8','#9aa3ab','#2f4a6b','#7a2c2c','#2b2f33','#c9b27c','#4b6b4f','#f4f4f2','#8a3b2a','#5c6f86','#b9bcc0','#1f5f7a'];
 function halfView(){const z=Math.max(.2,cam.z);return[VW/2/z,VH/2/z]}
 function onScreen(x,y,m){const[hw,hh]=halfView();return Math.abs(x-cam.x)<hw+m&&Math.abs(y-cam.y)<hh+m}
@@ -302,13 +302,13 @@ function updAI(dt){
   const[hw,hh]=halfView();const far=Math.hypot(hw,hh)+2600;
   for(let i=AI.length-1;i>=0;i--){const c=AI[i];
     const tx=Math.cos(c.a),ty=Math.sin(c.a);const dx=P.x-c.x,dy=P.y-c.y;const ahead=dx*tx+dy*ty,lat=Math.abs(-dx*ty+dy*tx);
-    let want=c.tv;const look=c.t==='bus'?130:95;if(ahead>0&&ahead<look&&lat<32)want=0;
+    let want=c.tv;const look=c.t==='bus'?150:120;const pd=Math.hypot(dx,dy);if(ahead>-20&&ahead<look+60&&lat<52)want=0;else if(pd<170)want=Math.min(want,60);
     for(const o of AI){if(o===c)continue;const ox=o.x-c.x,oy=o.y-c.y;const ah=ox*tx+oy*ty;if(ah>0&&ah<look&&Math.abs(-ox*ty+oy*tx)<20)want=Math.min(want,ah<look*.6?0:o.v*.8)}
     /* zwalnianie przed zakrętem */
     const rem=c.dir>0?c.e.len-c.s:c.s;if(rem<160)want=Math.min(want,Math.max(110,rem*1.4));
     c.brk=want<c.v-25;c.v+=(want-c.v)*Math.min(1,(want<c.v?3.5:1.1)*dt);
     c.s+=c.dir*c.v*dt;let g=0;while((c.s>c.e.len||c.s<0)&&g++<5){const over=c.dir>0?c.s-c.e.len:-c.s;aiNext(c);c.s+=c.dir*over}
-    const p=ptAt(c.e,c.s);const a2=p.a+(c.dir<0?Math.PI:0);const off=c.e.w*.24;const nx=p.x-Math.sin(a2)*off,ny=p.y+Math.cos(a2)*off;
+    const p=ptAt(c.e,c.s);const a2=p.a+(c.dir<0?Math.PI:0);const off=c.e.w*.27;const nx=p.x-Math.sin(a2)*off,ny=p.y+Math.cos(a2)*off;
     if(c.init){c.a=a2;c.x=nx;c.y=ny;c.init=false}else{let da=a2-c.a;while(da>Math.PI)da-=2*Math.PI;while(da<-Math.PI)da+=2*Math.PI;c.a+=da*Math.min(1,7*dt);c.x+=(nx-c.x)*Math.min(1,10*dt);c.y+=(ny-c.y)*Math.min(1,10*dt)}
     if(Math.hypot(c.x-cam.x,c.y-cam.y)>far&&!onScreen(c.x,c.y,300))AI.splice(i,1)}
   for(let k=0;k<2&&AI.length<AIN;k++)spawnAI(false);
@@ -643,19 +643,19 @@ function update(dt){
   const sRate=steerT===0?8:(P.steer*steerT<0?10:4.2);P.steer+=clamp(steerT-P.steer,-sRate*dt,sRate*dt);
   P.thr+=((K.up?1:0)-P.thr)*Math.min(1,9*dt);
   let fx=Math.cos(P.a),fy=Math.sin(P.a);let vF=P.vx*fx+P.vy*fy;
-  /* skręt: model rowerowy z bezwładnością obrotu */
-  const delta=P.steer*.62/(1+Math.abs(vF)/210);
-  let wT=vF*Math.tan(delta)/WB;
-  const slip0=Math.abs(-P.vx*fy+P.vy*fx);
-  const hand=K.hand&&Math.abs(vF)>90;
-  if(hand)wT*=1.6;else{const wl=st.grip*surfGrip*1.05/Math.max(80,Math.abs(vF));wT=clamp(wT,-wl,wl)}
-  const drifting=hand||slip0>110;
-  P.w+=(wT-P.w)*Math.min(1,(drifting?2.6:11)*dt);
+  /* skręt w stylu klasycznych gier z widokiem z góry: stała szybkość obrotu, mocna przyczepność */
+  const hand=K.hand&&Math.abs(vF)>60;const sp=Math.abs(vF);
+  const turnF=Math.min(1,sp/130)*(1-.22*Math.min(1,sp/st.maxV));
+  const wT=P.steer*3.4*turnF*(vF<0?-1:1)*(hand?1.5:1)*(onR?1:.85);
+  P.w+=(wT-P.w)*Math.min(1,16*dt);
   P.a+=P.w*dt;
+  /* asysta: gdy nie skręcasz, auto łagodnie układa się wzdłuż jezdni i nie zjeżdża na pobocze */
+  if(onR&&!steerT&&!hand&&sp>90){const pr=projEdge(road,P.x,P.y);const q=ptAt(road,pr.s);let da=q.a-P.a;while(da>Math.PI)da-=2*Math.PI;while(da<-Math.PI)da+=2*Math.PI;if(Math.abs(da)>Math.PI/2)da+=da>0?-Math.PI:Math.PI;
+    if(Math.abs(da)<.45)P.a+=clamp(da*3.2,-1.1,1.1)*dt;
+    const half=road.w/2,lim=half*.5;if(pr.d>lim&&pr.d>1){const t=Math.min(1,(pr.d-lim)/(half-lim));const nx=(pr.x-P.x)/pr.d,ny=(pr.y-P.y)/pr.d;P.vx+=nx*520*t*dt;P.vy+=ny*520*t*dt}}
   fx=Math.cos(P.a);fy=Math.sin(P.a);vF=P.vx*fx+P.vy*fy;let vR=-P.vx*fy+P.vy*fx;
-  /* przyczepność boczna: ograniczona siła, powyżej granicy poślizg */
-  const latMax=st.grip*surfGrip*(hand?.26:1)*(Math.abs(vR)>110?.78:1);
-  const dv=Math.min(Math.abs(vR),latMax*dt);vR-=Math.sign(vR)*dv;
+  const slip0=Math.abs(vR);
+  vR*=Math.exp(-(hand?1.2:(onR?9.5:6.5)*st.grip)*dt);
   /* napęd i hamulce */
   const max=st.maxV*(boost?1.38:1)*surfMax;
   if(P.thr>.01&&vF<max){vF+=st.acc*P.thr*(boost?1.65:1)*surfGrip*(1-.55*clamp(vF/max,0,1))*dt}
