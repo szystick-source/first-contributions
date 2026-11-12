@@ -198,7 +198,7 @@ function init(D){
   grid=Array.from({length:GW*GH},()=>({e:[],b:[],l:[],r:[]}));
   NN=D.nodes.length>>1;NX=new Float32Array(NN);NY=new Float32Array(NN);for(let i=0;i<NN;i++){NX[i]=D.nodes[2*i];NY[i]=D.nodes[2*i+1]}
   ADJ=Array.from({length:NN},()=>[]);
-  D.edges.forEach((r,i)=>{const p=dec(r,5);const cl=new Float32Array(p.length>>1);for(let k=1;k<cl.length;k++)cl[k]=cl[k-1]+Math.hypot(p[2*k]-p[2*k-2],p[2*k+1]-p[2*k-1]);
+  D.edges.forEach((r,i)=>{const p=dec(r[5],0);const cl=new Float32Array(p.length>>1);for(let k=1;k<cl.length;k++)cl[k]=cl[k-1]+Math.hypot(p[2*k]-p[2*k-2],p[2*k+1]-p[2*k-1]);
     const e={i,a:r[0],b:r[1],c:r[2],w:r[3],n:r[4]>=0?NAMES[r[4]]:'',p,cl,len:cl[cl.length-1]||1,bb:bb(p,r[3]/2+4),f:0};E.push(e);ADJ[e.a].push(i);if(e.b!==e.a)ADJ[e.b].push(i);
     cells(e.bb[0],e.bb[1],e.bb[2],e.bb[3],c=>c.e.push(e))});
   D.land.forEach(([t,rings])=>{const rs=rings.map(r=>dec(r,0));const o={t,rs,bb:bb(rs[0],0),f:0};LANDP.push(o);cells(o.bb[0],o.bb[1],o.bb[2],o.bb[3],c=>c.l.push(o))});
@@ -293,7 +293,7 @@ function updAI(dt){
     const p=ptAt(c.e,c.s);const a2=p.a+(c.dir<0?Math.PI:0);const off=c.e.w*.24;c.x=p.x-Math.sin(a2)*off;c.y=p.y+Math.cos(a2)*off;
     if(c.init){c.a=a2;c.init=false}else{let da=a2-c.a;while(da>Math.PI)da-=2*Math.PI;while(da<-Math.PI)da+=2*Math.PI;c.a+=da*Math.min(1,8*dt)}
     if(Math.hypot(c.x-P.x,c.y-P.y)>3400){AI.splice(i,1)}}
-  while(AI.length<AIN)spawnAI(false);
+  for(let k=0;k<3&&AI.length<AIN;k++)spawnAI(false);
 }
 
 /* ---------- kursy ---------- */
@@ -302,7 +302,7 @@ const PAX=[
  ['Turysta z plecakiem','Z Chojnika podobno widać Śnieżkę.'],['Studentka z Karkonoskiej','Mam kolokwium za kwadrans.'],
  ['Pan Zbyszek','Za moich czasów tramwaj jeździł do Cieplic i Sobieszowa.'],['Para z Wrocławia','Chcemy zdążyć przed zachodem.'],
  ['Narciarz z deską','Wyciąg na Szrenicę zamykają o szesnastej.'],['Kibic Karkonoszy','Szybko, mecz zaraz się zaczyna.'],
- ['Biegaczka narciarska','Na Polanę Jakuszycką, trasy już przetarte.'],['Szklarz z huty','Mam dostawę kryształów, jedź płynnie.'],
+ ['Biegaczka narciarska','Jadę pobiegać pod Szrenicę, trasy przetarte.'],['Szklarz z huty','Mam dostawę kryształów, jedź płynnie.'],
  ['Pilot szybowca','Na lotnisku czeka termika.'],['Pani z teatru','Spektakl zaczyna się o dziewiętnastej.'],
 ];
 let job=null;
@@ -440,6 +440,10 @@ function render(){
   for(const r of vr){ctx.strokeStyle='#4d86ab';ctx.lineWidth=r.w+8;ctx.beginPath();fp(r.p);ctx.stroke()}
   for(const r of vr){ctx.strokeStyle=LCOL.W;ctx.lineWidth=r.w;ctx.beginPath();fp(r.p);ctx.stroke()}
   for(const r of RAIL){if(!inV(r.bb))continue;ctx.strokeStyle='#7d7a74';ctx.lineWidth=10;ctx.beginPath();fp(r.p);ctx.stroke();ctx.strokeStyle='#e9e4d8';ctx.lineWidth=5;ctx.setLineDash([22,22]);ctx.stroke();ctx.setLineDash([])}
+  /* budynki */
+  ctx.fillStyle='rgba(0,0,0,.22)';ctx.beginPath();for(const b of vb){const p=b.p;ctx.moveTo(p[0]+6,p[1]+7);for(let k=2;k<p.length;k+=2)ctx.lineTo(p[k]+6,p[k+1]+7);ctx.closePath()}ctx.fill();
+  for(const b of vb){ctx.fillStyle=b.t===0?ROOF[b.h%ROOF.length]:BCOL[b.t]||ROOF[b.h%ROOF.length];ctx.beginPath();fp(b.p);ctx.closePath();ctx.fill()}
+  ctx.strokeStyle='rgba(255,255,255,.2)';ctx.lineWidth=1.5;ctx.beginPath();for(const b of vb){fp(b.p);ctx.closePath()}ctx.stroke();
   /* drogi: obramowanie, nawierzchnia, linie */
   for(let cl=5;cl>=0;cl--){ctx.strokeStyle=ROADC[cl];ctx.beginPath();let any=false;for(const e of ve)if(e.c===cl){if(!any){ctx.lineWidth=e.w+10;any=true}fp(e.p)}if(any){ctx.lineWidth=widthFor(cl)+10;ctx.stroke()}}
   for(let cl=5;cl>=0;cl--){ctx.strokeStyle=ROADF[cl];ctx.beginPath();let any=false;for(const e of ve)if(e.c===cl){any=true;fp(e.p)}if(any){ctx.lineWidth=widthFor(cl);ctx.stroke()}}
@@ -455,10 +459,6 @@ function render(){
   if(tgt&&started){const pu=job.stage==='pickup';const pr=60+Math.sin(T*5)*6;ctx.strokeStyle=pu?'#7fe08a':'#f2c230';ctx.lineWidth=7;ctx.beginPath();ctx.arc(tgt.x,tgt.y,pr,0,7);ctx.stroke();ctx.fillStyle=pu?'rgba(127,224,138,.2)':'rgba(242,194,48,.22)';ctx.fill();
     if(pu){ctx.fillStyle='#2b2f33';ctx.beginPath();ctx.arc(tgt.x,tgt.y-12,7,0,7);ctx.fill();ctx.fillStyle='#d93a2b';rr(tgt.x-8,tgt.y-4,16,20,5);ctx.fill()}
     else{ctx.strokeStyle='#222';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(tgt.x,tgt.y+20);ctx.lineTo(tgt.x,tgt.y-24);ctx.stroke();ctx.fillStyle='#f2c230';ctx.fillRect(tgt.x,tgt.y-24,22,14)}}
-  /* budynki */
-  ctx.fillStyle='rgba(0,0,0,.22)';ctx.beginPath();for(const b of vb){const p=b.p;ctx.moveTo(p[0]+6,p[1]+7);for(let k=2;k<p.length;k+=2)ctx.lineTo(p[k]+6,p[k+1]+7);ctx.closePath()}ctx.fill();
-  for(const b of vb){ctx.fillStyle=b.t===0?ROOF[b.h%ROOF.length]:BCOL[b.t]||ROOF[b.h%ROOF.length];ctx.beginPath();fp(b.p);ctx.closePath();ctx.fill()}
-  ctx.strokeStyle='rgba(255,255,255,.2)';ctx.lineWidth=1.5;ctx.beginPath();for(const b of vb){fp(b.p);ctx.closePath()}ctx.stroke();
   /* auta */
   for(const c of AI){if(c.x<x0||c.x>x1||c.y<y0||c.y>y1)continue;drawCar(c.x,c.y,c.a,c.c,c.bus?84:38,c.bus?26:19,c.bus)}
   if(K.nitro&&P.nitro>0&&started&&!paused){ctx.save();ctx.translate(P.x,P.y);ctx.rotate(P.a);ctx.fillStyle=`rgba(120,200,255,${.5+Math.random()*.4})`;ctx.beginPath();ctx.moveTo(-21,-5);ctx.lineTo(-38-Math.random()*14,0);ctx.lineTo(-21,5);ctx.fill();ctx.restore()}
@@ -481,7 +481,7 @@ const CR=16;
 function pushOut(nx,ny,hit){const vn=P.vx*nx+P.vy*ny;if(vn<0){P.vx-=1.35*vn*nx;P.vy-=1.35*vn*ny;return Math.max(hit,-vn)}return hit}
 function collide(){
   let hit=0;const seen=new Set();
-  cells(P.x-CR,P.y-CR,P.x+CR,P.y+CR,c=>{for(const b of c.b){if(seen.has(b))continue;seen.add(b);if(P.x+CR<b.bb[0]||P.x-CR>b.bb[2]||P.y+CR<b.bb[1]||P.y-CR>b.bb[3])continue;
+  if(!roadAt(P.x,P.y))cells(P.x-CR,P.y-CR,P.x+CR,P.y+CR,c=>{for(const b of c.b){if(seen.has(b))continue;seen.add(b);if(P.x+CR<b.bb[0]||P.x-CR>b.bb[2]||P.y+CR<b.bb[1]||P.y-CR>b.bb[3])continue;
     const p=b.p,n=p.length;let best=1e9,qx=0,qy=0;for(let k=0;k<n;k+=2){const k2=(k+2)%n;const[d,x,y]=segD(P.x,P.y,p[k],p[k+1],p[k2],p[k2+1]);if(d<best){best=d;qx=x;qy=y}}
     const inside=inPoly(P.x,P.y,p);if(!inside&&best>=CR)continue;
     let nx=P.x-qx,ny=P.y-qy,l=Math.hypot(nx,ny)||1;nx/=l;ny/=l;if(inside){nx=-nx;ny=-ny}

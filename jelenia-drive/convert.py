@@ -165,7 +165,6 @@ CELL = 3000
 land_out = []
 for lt, p in lands:
     if not p.is_valid: p = p.buffer(0)
-    p = p.simplify(5)
     minx, miny, maxx, maxy = p.bounds
     # project polygon
     def projpoly(poly):
@@ -178,6 +177,8 @@ for lt, p in lands:
         pp = None
     if pp is None or pp.is_empty: continue
     if not pp.is_valid: pp = pp.buffer(0)
+    pp = pp.simplify(4)
+    if pp.is_empty: continue
     bx0, by0, bx1, by1 = pp.bounds
     for cx in range(int(max(0, bx0) // CELL), int(min(WW, bx1) // CELL) + 1):
         for cy in range(int(max(0, by0) // CELL), int(min(HH, by1) // CELL) + 1):
